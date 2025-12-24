@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/matryer/xbar/pkg/metadata"
+	"github.com/laborin/pico-xbar/pkg/metadata"
 	"github.com/pkg/errors"
 )
 

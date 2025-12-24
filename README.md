@@ -1,53 +1,66 @@
-[![](xbarapp.com/public/img/xbar-menu-preview.png)](https://xbarapp.com/)
+# pico-xbar
 
-# Welcome to xbar
+A lightweight fork of [xbar](https://github.com/matryer/xbar) that uses native macOS NSStatusBar APIs.
 
-xbar (the BitBar reboot) lets you put the output from any script/program in your macOS menu bar.
+## Features
 
-  * **Complete rewrite from the ground up** - in Go by @matryer and @leaanthony - using [Wails.app (build cross-platform desktop apps using Go & HTML/CSS/JS)](https://wails.app)
-  * Completely open source
-  * [Download latest xbar release](https://github.com/matryer/xbar/releases/latest) - requires macOS Catalina or newer (>= 10.15)
-  * [Visit the app homepage at https://xbarapp.com](https://xbarapp.com)
-  * [Get started](#get-started) and [installing plugins](#installing-plugins)
+- 99% compatibility with existing xbar plugins
+- Native macOS menu bar integration via custom CGO/NSStatusBar
+- No Wails/WebView (no plugin browser)
+- Minimal memory footprint: ~20MB vs 120MB+
 
-Digging deeper:
+## Motivation
 
-  * [Browse plugin repository](https://xbarapp.com/)
-  * [Guide to writing your own plugins](https://github.com/matryer/xbar-plugins/blob/main/CONTRIBUTING.md)
+I've been an xbar user myself for years. I found myself a few days ago wanting to use xbar just to show a minimal visual indicator to know whether if my keyboard function keys are enabled or not, as I toggle them frequently when working on the terminal. A simple command line output tells me the info so xbar was the perfect tool for this. However, I noticed that xbar used a lot of memory and many processes for such a small app that has no UI most of the time. Checking macos activity monitor, I realised that xbar loads a webview in memory even if you never use the plugin browser.
 
-And finally...
+I decided to fork, surgically remove Wails and replace it with systray. I wish I was able to say it was easy, as most of the heavy things for plugin parsing were already done by the original author, but it was not trivial. Wails was not a 'thing' in xbar, but xbar was built on top of Wails. Also, systray did not support multiple menus, and I also tried menuet but it had glitches so I ended up coding a custom implementation using native NSStatusBar.
 
-  * [Read the story about how xbar unexpectedly got going](https://medium.com/@matryer/what-happens-when-your-old-open-source-project-unexpectedly-gets-to-the-top-of-hacker-news-31114c6c6efb#.fznvtgskb)
-  * [Contributing](#contributing) and [special thanks](#thanks)
+![Comparison of memory and processes used by xbar and pico-xbar](assets/pico-xbar_vs_xbar_memory_footprint.png)
 
-## Get started
+## Code changes from xbar
 
-### Install
+**Removed:** Wails framework, Svelte WebView frontend, remote services (plugin browser, update checker), and website/tools code.
 
-* [Download the latest release of xbar](https://github.com/matryer/xbar/releases).
+**Kept unchanged:** The entire `pkg/plugins/` directory wich handles plugin discovery, execution, output parsing and click actions.
 
-## Installing plugins
+**New:** Custom CGO/Objective-C wrapper for NSStatusBar (`internal/statusbar/`), menu builder (`internal/menu/`), and app logic (`internal/app/`).
 
-From an xbar menu, choose **Preferences > Plugins...** to use the xbar app to discover and manage plugins.
+## Writing Plugins
 
-You can [browse all the plugins](https://xbarapp.com/) online, or [write your own](https://github.com/matryer/xbar-plugins/blob/main/CONTRIBUTING.md).
+The xbar documentation for writing plugins applies to pico-xbar: [https://xbarapp.com/docs/plugins/](https://xbarapp.com/docs/plugins/)
 
-### The Plugin Directory
+## Unsupported Plugin Parameters
 
-The plugin directory is folder on your Mac where the plugins live, located at `~/Library/Application Support/xbar/plugins`.
+While I aimed for full plugin API compatibility with the base xbar project, these parameters are not implemented:
 
-* If you're transitioning from Bitbar, move your plugins into this new folder to install them
+- `font`/`size` - Custom fonts require more complex NSAttributedString handling, I did not need this for my use case.
+- `key` - Keyboard shortcuts for menu items. NSMenuItem supports this but I have not implemented it.
+- `alternate` - Shows alternate item when holding Option key. Would need extra logic to track modifier keys.
 
-## Contributing
+## Build from source
 
-If you'd like to contribute a plugin, head over to https://github.com/matryer/xbar-plugins to get started.
+```bash
+go build -o pico-xbar ./cmd/pico-xbar
+```
 
-Please do not send pull requests to this repo. Open an issue and start a conversation first. PRs will likely not be accepted.
+## Run
 
-* Get started with our [Writing plugins guide](https://github.com/matryer/xbar-plugins/blob/main/CONTRIBUTING.md)
+```bash
+./pico-xbar
+```
 
-## Thanks
+## Plugin Directory
 
-  * Special thanks to [@leaanthony at https://wails.app](https://wails.app) and [@ianfoo](https://github.com/ianfoo), [@gingerbeardman](https://github.com/gingerbeardman), [@iosdeveloper](https://github.com/iosdeveloper), [@muhqu](https://github.com/muhqu), [@m-cat](https://github.com/m-cat), [@mpicard](https://github.com/mpicard), [@tylerb](https://github.com/tylerb) for their help
-  * Thanks to [Chris Ryer](http://www.chrisryer.co.uk/) for the app logo - and to [@mazondo](https://twitter.com/mazondo) for the original
-  * Thanks for all our [plugin contributors](https://xbarapp.com/) who have come up with some pretty genius things
+Plugins are loaded from the standard xbar plugins directory:
+```
+~/Library/Application Support/xbar/plugins/
+```
+
+You can even run xbar and pico-xbar side by side to compare and confirm that your plugins work as expected.
+
+## License
+
+MIT License - see LICENSE.txt
+
+Forked from [xbar](https://github.com/matryer/xbar) by Mat Ryer.
+
