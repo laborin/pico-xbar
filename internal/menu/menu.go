@@ -129,10 +129,11 @@ func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
 			pm.addMenuItem(child, text)
 		}
 	} else {
+		disabled := item.Params.Disabled || item.Action() == nil
 		if parentSubmenu == "" {
-			statusbar.AddMenuItemWithColor(pm.itemId, index, text, item.Params.Disabled, false, item.Params.Color)
+			statusbar.AddMenuItemWithColor(pm.itemId, index, text, disabled, false, item.Params.Color)
 		} else {
-			statusbar.AddSubmenuItem(pm.itemId, parentSubmenu, index, text, item.Params.Disabled, false, item.Params.Color)
+			statusbar.AddSubmenuItem(pm.itemId, parentSubmenu, index, text, disabled, false, item.Params.Color)
 		}
 
 		if item.Params.TemplateImage != "" {
