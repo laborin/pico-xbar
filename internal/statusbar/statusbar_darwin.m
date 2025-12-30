@@ -38,21 +38,6 @@ static NSMenu* findSubmenuByTitle(NSMenu *menu, NSString *title) {
     return nil;
 }
 
-static NSMenuItem* findMenuItemByTag(NSMenu *menu, int tag) {
-    for (NSMenuItem *item in [menu itemArray]) {
-        if ([item tag] == tag && ![item hasSubmenu]) {
-            return item;
-        }
-        if ([item hasSubmenu]) {
-            NSMenuItem *found = findMenuItemByTag([item submenu], tag);
-            if (found != nil) {
-                return found;
-            }
-        }
-    }
-    return nil;
-}
-
 static NSColor* colorFromHex(NSString *hexString) {
     if (hexString == nil || [hexString length] == 0) {
         return nil;
@@ -320,7 +305,22 @@ void addNestedSubmenu(int itemId, const char *parentSubmenuTitle, const char *ti
     }
 }
 
-void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length, int isTemplate) {
+static NSMenuItem* findMenuItemByTag(NSMenu *menu, int tag) {
+    for (NSMenuItem *item in [menu itemArray]) {
+        if ([item tag] == tag && ![item hasSubmenu]) {
+            return item;
+        }
+        if ([item hasSubmenu]) {
+            NSMenuItem *found = findMenuItemByTag([item submenu], tag);
+            if (found != nil) {
+                return found;
+            }
+        }
+    }
+    return nil;
+}
+
+void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length, int isTemplate, int shrink) {
     NSData *imageData = [NSData dataWithBytes:data length:length];
 
     dispatch_block_t block = ^{
@@ -330,7 +330,9 @@ void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length
             if (menuItem != nil) {
                 NSImage *image = [[NSImage alloc] initWithData:imageData];
                 if (image != nil) {
-                    [image setSize:NSMakeSize(16, 16)];
+                    if (shrink != 0) {
+                        [image setSize:NSMakeSize(16, 16)];
+                    }
                     [image setTemplate:(isTemplate != 0)];
                     [menuItem setImage:image];
                 }

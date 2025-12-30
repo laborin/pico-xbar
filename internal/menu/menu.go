@@ -138,11 +138,11 @@ func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
 
 		if item.Params.TemplateImage != "" {
 			if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.TemplateImage); err == nil {
-				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, true)
+				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, true, item.Params.ShrinkImage)
 			}
 		} else if item.Params.Image != "" {
 			if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.Image); err == nil {
-				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, false)
+				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, false, item.Params.ShrinkImage)
 			}
 		}
 

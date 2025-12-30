@@ -15,7 +15,7 @@ void addMenuItemWithColor(int itemId, int menuItemIndex, const char *title, int 
 void addSubmenu(int itemId, const char *title);
 void addSubmenuItem(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor);
 void addNestedSubmenu(int itemId, const char *parentSubmenuTitle, const char *title);
-void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length, int isTemplate);
+void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length, int isTemplate, int shrink);
 void removeStatusItem(int itemId);
 void runApp(void);
 void stopApp(void);
@@ -139,7 +139,7 @@ func AddNestedSubmenu(itemId int, parentSubmenuTitle string, title string) {
 	C.addNestedSubmenu(C.int(itemId), cParentTitle, cTitle)
 }
 
-func SetMenuItemIcon(itemId int, menuItemIndex int, data []byte, isTemplate bool) {
+func SetMenuItemIcon(itemId int, menuItemIndex int, data []byte, isTemplate bool, shrink bool) {
 	if len(data) == 0 {
 		return
 	}
@@ -147,7 +147,11 @@ func SetMenuItemIcon(itemId int, menuItemIndex int, data []byte, isTemplate bool
 	if isTemplate {
 		template = 1
 	}
-	C.setMenuItemIcon(C.int(itemId), C.int(menuItemIndex), unsafe.Pointer(&data[0]), C.int(len(data)), C.int(template))
+	shrinkInt := 0
+	if shrink {
+		shrinkInt = 1
+	}
+	C.setMenuItemIcon(C.int(itemId), C.int(menuItemIndex), unsafe.Pointer(&data[0]), C.int(len(data)), C.int(template), C.int(shrinkInt))
 }
 
 func RemoveStatusItem(itemId int) {

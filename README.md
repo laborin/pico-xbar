@@ -17,7 +17,9 @@ I decided to fork, surgically remove Wails and replace it with systray. I wish I
 
 ![Comparison of memory and processes used by xbar and pico-xbar](assets/pico-xbar_vs_xbar_memory_footprint.png)
 
-## Code changes from xbar
+## Differences from xbar
+
+### Code changes
 
 **Removed:** Wails framework, Svelte WebView frontend, remote services (plugin browser, update checker), and website/tools code.
 
@@ -25,17 +27,19 @@ I decided to fork, surgically remove Wails and replace it with systray. I wish I
 
 **New:** Custom CGO/Objective-C wrapper for NSStatusBar (`internal/statusbar/`), menu builder (`internal/menu/`), and app logic (`internal/app/`).
 
+### Plugin parameters
+
+**Unsupported:**
+- `font`/`size` - Custom fonts require more complex NSAttributedString handling. I did not need this for my use case.
+- `key` - Keyboard shortcuts for menu items. NSMenuItem supports this but I have not implemented it.
+- `alternate` - Shows alternate item when holding Option key. Would need extra logic to track modifier keys.
+
+**New:**
+- `shrinkImage` - When `true`, resizes images to 16x16, useful if you want to show well aligned icons. Default is `false` (original size, same as xbar).
+
 ## Writing Plugins
 
 The xbar documentation for writing plugins applies to pico-xbar: [https://xbarapp.com/docs/plugins/](https://xbarapp.com/docs/plugins/)
-
-## Unsupported Plugin Parameters
-
-While I aimed for full plugin API compatibility with the base xbar project, these parameters are not implemented:
-
-- `font`/`size` - Custom fonts require more complex NSAttributedString handling, I did not need this for my use case.
-- `key` - Keyboard shortcuts for menu items. NSMenuItem supports this but I have not implemented it.
-- `alternate` - Shows alternate item when holding Option key. Would need extra logic to track modifier keys.
 
 ## Build from source
 

@@ -96,6 +96,9 @@ type ItemParams struct {
 	TemplateImage string `json:"template_image"`
 	// Image is the item for this item.
 	Image string `json:"image"`
+	// ShrinkImage indicates whether to resize images to 16x16.
+	// When false (default), images keep their original size like xbar.
+	ShrinkImage bool `json:"shrink_image"`
 	// Emojize indicates whether to process emoji strings (like :mushroom:)
 	// or not.
 	Emojize bool `json:"emojize"`
@@ -206,6 +209,12 @@ func (p *ItemParams) setValueByKey(key, value string) error {
 		p.TemplateImage = value
 	case "image":
 		p.Image = value
+	case "shrinkImage":
+		var err error
+		p.ShrinkImage, err = parseBool(value)
+		if err != nil {
+			return errors.Wrap(err, key)
+		}
 	case "terminal":
 		var err error
 		p.Terminal, err = parseBool(value)
