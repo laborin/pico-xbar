@@ -27,10 +27,8 @@ type PluginMenu struct {
 }
 
 func NewPluginMenu(p *plugins.Plugin) *PluginMenu {
-	itemId := statusbar.CreateStatusItem()
-
 	pm := &PluginMenu{
-		itemId:    itemId,
+		itemId:    -1,
 		plugin:    p,
 		ctx:       context.Background(),
 		menuItems: make(map[int]*plugins.Item),
@@ -40,11 +38,6 @@ func NewPluginMenu(p *plugins.Plugin) *PluginMenu {
 }
 
 func (pm *PluginMenu) Setup() {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-
-	pm.updateTitle()
-	pm.rebuildMenu()
 }
 
 func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
@@ -54,6 +47,10 @@ func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
 	pm.ctx = ctx
 	pm.plugin = p
 
+	if pm.itemId == -1 {
+		pm.itemId = statusbar.CreateStatusItem()
+	}
+
 	pm.updateTitle()
 	pm.rebuildMenu()
 }
@@ -61,6 +58,10 @@ func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
 func (pm *PluginMenu) UpdateLabel(p *plugins.Plugin) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+
+	if pm.itemId == -1 {
+		return
+	}
 
 	pm.plugin = p
 	pm.updateTitle()
