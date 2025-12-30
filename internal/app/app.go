@@ -18,7 +18,7 @@ type App struct {
 	settings  *Settings
 
 	plugins     plugins.Plugins
-	pluginMenus map[int]*menu.PluginMenu
+	pluginMenus []*menu.PluginMenu
 	menuLock    sync.Mutex
 
 	ctx    context.Context
@@ -40,10 +40,9 @@ func New(dataDir string) (*App, error) {
 	}
 
 	return &App{
-		dataDir:     dataDir,
-		pluginDir:   pluginDir,
-		settings:    settings,
-		pluginMenus: make(map[int]*menu.PluginMenu),
+		dataDir:   dataDir,
+		pluginDir: pluginDir,
+		settings:  settings,
 	}, nil
 }
 
@@ -87,7 +86,7 @@ func (a *App) startPlugin(p *plugins.Plugin) {
 	pm := menu.NewPluginMenu(p)
 
 	a.menuLock.Lock()
-	a.pluginMenus[pm.ItemId()] = pm
+	a.pluginMenus = append(a.pluginMenus, pm)
 	a.menuLock.Unlock()
 
 	p.OnRefresh = func(ctx context.Context, plugin *plugins.Plugin, err error) {
@@ -109,10 +108,16 @@ func (a *App) startPlugin(p *plugins.Plugin) {
 
 func (a *App) handleClick(itemId int, menuItemIndex int) {
 	a.menuLock.Lock()
-	pm, ok := a.pluginMenus[itemId]
+	var pm *menu.PluginMenu
+	for _, m := range a.pluginMenus {
+		if m.ItemId() == itemId {
+			pm = m
+			break
+		}
+	}
 	a.menuLock.Unlock()
 
-	if ok {
+	if pm != nil {
 		pm.HandleClick(menuItemIndex)
 	}
 }

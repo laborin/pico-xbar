@@ -92,15 +92,27 @@ func (pm *PluginMenu) rebuildMenu() {
 	pm.menuItems = make(map[int]*plugins.Item)
 	pm.nextIndex = 0
 
-	for _, item := range pm.plugin.Items.ExpandedItems {
+	items := pm.plugin.Items.ExpandedItems
+	for _, item := range items {
 		pm.addMenuItem(item, "")
 	}
 
-	statusbar.AddMenuItem(pm.itemId, -100, "", false, true)
-	statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, "Refresh", false, false)
-	statusbar.AddMenuItem(pm.itemId, menuIndexOpenPlugin, "Open Plugin...", false, false)
-	statusbar.AddMenuItem(pm.itemId, -101, "", false, true)
-	statusbar.AddMenuItem(pm.itemId, menuIndexQuit, "Quit", false, false)
+	if len(items) == 0 {
+		statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, "Refresh", false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexOpenPlugin, "Open Plugin...", false, false)
+		statusbar.AddMenuItem(pm.itemId, -101, "", false, true)
+		statusbar.AddMenuItem(pm.itemId, menuIndexQuit, "Quit", false, false)
+	} else {
+		lastIsSeparator := len(items) > 0 && items[len(items)-1].Params.Separator
+		if !lastIsSeparator {
+			statusbar.AddMenuItem(pm.itemId, -100, "", false, true)
+		}
+		statusbar.AddSubmenu(pm.itemId, "pico-xbar")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefresh, "Refresh", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexOpenPlugin, "Open Plugin...", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", -101, "", false, true, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexQuit, "Quit", false, false, "")
+	}
 }
 
 func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
