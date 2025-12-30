@@ -16,6 +16,7 @@ I've been an xbar user myself for years. I found myself a few days ago wanting t
 I decided to fork, surgically remove Wails and replace it with systray. I wish I was able to say it was easy, as most of the heavy things for plugin parsing were already done by the original author, but it was not trivial. Wails was not a 'thing' in xbar, but xbar was built on top of Wails. Also, systray did not support multiple menus, and I also tried menuet but it had glitches so I ended up coding a custom implementation using native NSStatusBar.
 
 ![Comparison of memory and processes used by xbar and pico-xbar](assets/pico-xbar_vs_xbar_memory_footprint.png)
+*Comparison of memory and processes used by xbar and pico-xbar, running side by side*
 
 ## Differences from xbar
 
