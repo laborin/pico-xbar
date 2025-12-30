@@ -23,6 +23,36 @@ static NSMutableDictionary *menuDelegates = nil;
 // Forward declarations
 void addMenuItemWithColor(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor);
 
+static NSMenu* findSubmenuByTitle(NSMenu *menu, NSString *title) {
+    for (NSMenuItem *item in [menu itemArray]) {
+        if ([item hasSubmenu]) {
+            if ([[item title] isEqualToString:title]) {
+                return [item submenu];
+            }
+            NSMenu *found = findSubmenuByTitle([item submenu], title);
+            if (found != nil) {
+                return found;
+            }
+        }
+    }
+    return nil;
+}
+
+static NSMenuItem* findMenuItemByTag(NSMenu *menu, int tag) {
+    for (NSMenuItem *item in [menu itemArray]) {
+        if ([item tag] == tag && ![item hasSubmenu]) {
+            return item;
+        }
+        if ([item hasSubmenu]) {
+            NSMenuItem *found = findMenuItemByTag([item submenu], tag);
+            if (found != nil) {
+                return found;
+            }
+        }
+    }
+    return nil;
+}
+
 static NSColor* colorFromHex(NSString *hexString) {
     if (hexString == nil || [hexString length] == 0) {
         return nil;
@@ -231,11 +261,8 @@ void addSubmenuItem(int itemId, const char *submenuTitle, int menuItemIndex, con
         NSMenu *menu = [menus objectForKey:@(itemId)];
         XBMenuDelegate *delegate = [menuDelegates objectForKey:@(itemId)];
         if (menu != nil) {
-            // Find the submenu
-            NSMenuItem *parentItem = [menu itemWithTitle:nsSubmenuTitle];
-            if (parentItem != nil && [parentItem hasSubmenu]) {
-                NSMenu *submenu = [parentItem submenu];
-
+            NSMenu *submenu = findSubmenuByTitle(menu, nsSubmenuTitle);
+            if (submenu != nil) {
                 if (isSeparator) {
                     [submenu addItem:[NSMenuItem separatorItem]];
                 } else {
@@ -275,10 +302,8 @@ void addNestedSubmenu(int itemId, const char *parentSubmenuTitle, const char *ti
     dispatch_block_t block = ^{
         NSMenu *menu = [menus objectForKey:@(itemId)];
         if (menu != nil) {
-            NSMenuItem *parentItem = [menu itemWithTitle:nsParentTitle];
-            if (parentItem != nil && [parentItem hasSubmenu]) {
-                NSMenu *parentSubmenu = [parentItem submenu];
-
+            NSMenu *parentSubmenu = findSubmenuByTitle(menu, nsParentTitle);
+            if (parentSubmenu != nil) {
                 NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:nsTitle action:nil keyEquivalent:@""];
                 NSMenu *submenu = [[NSMenu alloc] initWithTitle:nsTitle];
                 [submenu setAutoenablesItems:NO];
@@ -301,43 +326,13 @@ void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length
     dispatch_block_t block = ^{
         NSMenu *menu = [menus objectForKey:@(itemId)];
         if (menu != nil) {
-            for (NSMenuItem *item in [menu itemArray]) {
-                if ([item tag] == menuItemIndex) {
-                    NSImage *image = [[NSImage alloc] initWithData:imageData];
-                    if (image != nil) {
-                        [image setSize:NSMakeSize(16, 16)];
-                        [image setTemplate:(isTemplate != 0)];
-                        [item setImage:image];
-                    }
-                    break;
-                }
-                // Also check submenus
-                if ([item hasSubmenu]) {
-                    for (NSMenuItem *subitem in [[item submenu] itemArray]) {
-                        if ([subitem tag] == menuItemIndex) {
-                            NSImage *image = [[NSImage alloc] initWithData:imageData];
-                            if (image != nil) {
-                                [image setSize:NSMakeSize(16, 16)];
-                                [image setTemplate:(isTemplate != 0)];
-                                [subitem setImage:image];
-                            }
-                            return;
-                        }
-                        // Check nested submenus too
-                        if ([subitem hasSubmenu]) {
-                            for (NSMenuItem *nestedItem in [[subitem submenu] itemArray]) {
-                                if ([nestedItem tag] == menuItemIndex) {
-                                    NSImage *image = [[NSImage alloc] initWithData:imageData];
-                                    if (image != nil) {
-                                        [image setSize:NSMakeSize(16, 16)];
-                                        [image setTemplate:(isTemplate != 0)];
-                                        [nestedItem setImage:image];
-                                    }
-                                    return;
-                                }
-                            }
-                        }
-                    }
+            NSMenuItem *menuItem = findMenuItemByTag(menu, menuItemIndex);
+            if (menuItem != nil) {
+                NSImage *image = [[NSImage alloc] initWithData:imageData];
+                if (image != nil) {
+                    [image setSize:NSMakeSize(16, 16)];
+                    [image setTemplate:(isTemplate != 0)];
+                    [menuItem setImage:image];
                 }
             }
         }
