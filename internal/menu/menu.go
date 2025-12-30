@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"github.com/laborin/pico-xbar/internal/statusbar"
@@ -12,9 +13,12 @@ import (
 )
 
 const (
-	menuIndexRefresh    = -1
-	menuIndexOpenPlugin = -2
-	menuIndexQuit       = -3
+	menuIndexRefresh        = -1
+	menuIndexOpenPlugin     = -2
+	menuIndexQuit           = -3
+	menuIndexCopyPath       = -4
+	menuIndexShowInFinder   = -5
+	menuIndexOpenTerminal   = -6
 )
 
 type PluginMenu struct {
@@ -97,9 +101,12 @@ func (pm *PluginMenu) rebuildMenu() {
 		pm.addMenuItem(item, "")
 	}
 
+	pluginSubmenu := "Plugin..."
+
 	if len(items) == 0 {
 		statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, "Refresh", false, false)
-		statusbar.AddMenuItem(pm.itemId, menuIndexOpenPlugin, "Open Plugin...", false, false)
+		statusbar.AddSubmenu(pm.itemId, pluginSubmenu)
+		pm.addPluginSubmenuItems(pluginSubmenu)
 		statusbar.AddMenuItem(pm.itemId, -101, "", false, true)
 		statusbar.AddMenuItem(pm.itemId, menuIndexQuit, "Quit", false, false)
 	} else {
@@ -109,10 +116,21 @@ func (pm *PluginMenu) rebuildMenu() {
 		}
 		statusbar.AddSubmenu(pm.itemId, "pico-xbar")
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefresh, "Refresh", false, false, "")
-		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexOpenPlugin, "Open Plugin...", false, false, "")
+		statusbar.AddNestedSubmenu(pm.itemId, "pico-xbar", pluginSubmenu)
+		pm.addPluginSubmenuItems(pluginSubmenu)
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", -101, "", false, true, "")
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexQuit, "Quit", false, false, "")
 	}
+}
+
+func (pm *PluginMenu) addPluginSubmenuItems(submenuName string) {
+	pluginName := pm.plugin.CleanFilename()
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, -200, pluginName, true, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, -201, "", false, true, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexOpenPlugin, "Open Plugin File...", false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexCopyPath, "Copy Plugin Path", false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexShowInFinder, "Show in Finder", false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexOpenTerminal, "Open Terminal Here...", false, false, "")
 }
 
 func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
@@ -175,6 +193,14 @@ func (pm *PluginMenu) HandleClick(menuItemIndex int) {
 		plugin.TriggerRefresh()
 	case menuIndexOpenPlugin:
 		exec.Command("open", plugin.Command).Start()
+	case menuIndexCopyPath:
+		statusbar.CopyToClipboard(plugin.Command)
+		statusbar.ShowAlert("Path Copied", "Plugin path copied to clipboard.")
+	case menuIndexShowInFinder:
+		exec.Command("open", "-R", plugin.Command).Start()
+	case menuIndexOpenTerminal:
+		pluginDir := filepath.Dir(plugin.Command)
+		exec.Command("open", "-a", "Terminal", pluginDir).Start()
 	case menuIndexQuit:
 		statusbar.Stop()
 	default:

@@ -19,6 +19,8 @@ void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length
 void removeStatusItem(int itemId);
 void runApp(void);
 void stopApp(void);
+void copyToClipboard(const char *text);
+void showAlert(const char *title, const char *message);
 */
 import "C"
 import (
@@ -165,4 +167,18 @@ func Run(onReady func()) {
 
 func Stop() {
 	C.stopApp()
+}
+
+func CopyToClipboard(text string) {
+	cText := C.CString(text)
+	defer C.free(unsafe.Pointer(cText))
+	C.copyToClipboard(cText)
+}
+
+func ShowAlert(title, message string) {
+	cTitle := C.CString(title)
+	defer C.free(unsafe.Pointer(cTitle))
+	cMessage := C.CString(message)
+	defer C.free(unsafe.Pointer(cMessage))
+	C.showAlert(cTitle, cMessage)
 }

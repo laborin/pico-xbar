@@ -384,3 +384,38 @@ void stopApp(void) {
         dispatch_async(dispatch_get_main_queue(), block);
     }
 }
+
+void copyToClipboard(const char *text) {
+    NSString *nsText = [NSString stringWithUTF8String:text];
+
+    dispatch_block_t block = ^{
+        NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+        [pasteboard clearContents];
+        [pasteboard setString:nsText forType:NSPasteboardTypeString];
+    };
+
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), block);
+    }
+}
+
+void showAlert(const char *title, const char *message) {
+    NSString *nsTitle = [NSString stringWithUTF8String:title];
+    NSString *nsMessage = [NSString stringWithUTF8String:message];
+
+    dispatch_block_t block = ^{
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert setMessageText:nsTitle];
+        [alert setInformativeText:nsMessage];
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+    };
+
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), block);
+    }
+}
