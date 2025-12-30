@@ -21,6 +21,7 @@ void runApp(void);
 void stopApp(void);
 void copyToClipboard(const char *text);
 void showAlert(const char *title, const char *message);
+void setMenuItemState(int itemId, int menuItemIndex, int state);
 */
 import "C"
 import (
@@ -181,4 +182,12 @@ func ShowAlert(title, message string) {
 	cMessage := C.CString(message)
 	defer C.free(unsafe.Pointer(cMessage))
 	C.showAlert(cTitle, cMessage)
+}
+
+func SetMenuItemState(itemId int, menuItemIndex int, checked bool) {
+	state := 0
+	if checked {
+		state = 1
+	}
+	C.setMenuItemState(C.int(itemId), C.int(menuItemIndex), C.int(state))
 }

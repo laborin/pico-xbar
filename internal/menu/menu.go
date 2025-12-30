@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/laborin/pico-xbar/internal/loginitem"
 	"github.com/laborin/pico-xbar/internal/statusbar"
 	"github.com/laborin/pico-xbar/pkg/plugins"
 )
@@ -19,6 +20,7 @@ const (
 	menuIndexCopyPath       = -4
 	menuIndexShowInFinder   = -5
 	menuIndexOpenTerminal   = -6
+	menuIndexStartAtLogin   = -7
 )
 
 type PluginMenu struct {
@@ -107,6 +109,8 @@ func (pm *PluginMenu) rebuildMenu() {
 		statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, "Refresh", false, false)
 		statusbar.AddSubmenu(pm.itemId, pluginSubmenu)
 		pm.addPluginSubmenuItems(pluginSubmenu)
+		statusbar.AddMenuItem(pm.itemId, menuIndexStartAtLogin, "Start at Login", false, false)
+		statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
 		statusbar.AddMenuItem(pm.itemId, -101, "", false, true)
 		statusbar.AddMenuItem(pm.itemId, menuIndexQuit, "Quit", false, false)
 	} else {
@@ -118,6 +122,8 @@ func (pm *PluginMenu) rebuildMenu() {
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefresh, "Refresh", false, false, "")
 		statusbar.AddNestedSubmenu(pm.itemId, "pico-xbar", pluginSubmenu)
 		pm.addPluginSubmenuItems(pluginSubmenu)
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexStartAtLogin, "Start at Login", false, false, "")
+		statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", -101, "", false, true, "")
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexQuit, "Quit", false, false, "")
 	}
@@ -201,6 +207,11 @@ func (pm *PluginMenu) HandleClick(menuItemIndex int) {
 	case menuIndexOpenTerminal:
 		pluginDir := filepath.Dir(plugin.Command)
 		exec.Command("open", "-a", "Terminal", pluginDir).Start()
+	case menuIndexStartAtLogin:
+		if err := loginitem.Toggle(); err != nil {
+			statusbar.ShowAlert("Error", "Failed to toggle login item: "+err.Error())
+		}
+		statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
 	case menuIndexQuit:
 		statusbar.Stop()
 	default:

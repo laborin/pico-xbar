@@ -419,3 +419,21 @@ void showAlert(const char *title, const char *message) {
         dispatch_async(dispatch_get_main_queue(), block);
     }
 }
+
+void setMenuItemState(int itemId, int menuItemIndex, int state) {
+    dispatch_block_t block = ^{
+        NSMenu *menu = [menus objectForKey:@(itemId)];
+        if (menu != nil) {
+            NSMenuItem *menuItem = findMenuItemByTag(menu, menuItemIndex);
+            if (menuItem != nil) {
+                [menuItem setState:(state != 0) ? NSControlStateValueOn : NSControlStateValueOff];
+            }
+        }
+    };
+
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), block);
+    }
+}
