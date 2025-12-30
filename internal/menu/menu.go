@@ -172,19 +172,20 @@ func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
 		}
 	} else {
 		disabled := item.Params.Disabled || item.Action() == nil
+		p := item.Params
 		if parentSubmenu == "" {
-			statusbar.AddMenuItemWithColor(pm.itemId, index, text, disabled, false, item.Params.Color)
+			statusbar.AddMenuItemStyled(pm.itemId, index, text, disabled, false, p.Color, p.Font, p.Size, p.Key, p.Alternate)
 		} else {
-			statusbar.AddSubmenuItem(pm.itemId, parentSubmenu, index, text, disabled, false, item.Params.Color)
+			statusbar.AddSubmenuItemStyled(pm.itemId, parentSubmenu, index, text, disabled, false, p.Color, p.Font, p.Size, p.Key, p.Alternate)
 		}
 
-		if item.Params.TemplateImage != "" {
-			if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.TemplateImage); err == nil {
-				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, true, item.Params.ShrinkImage)
+		if p.TemplateImage != "" {
+			if iconBytes, err := base64.StdEncoding.DecodeString(p.TemplateImage); err == nil {
+				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, true, p.ShrinkImage)
 			}
-		} else if item.Params.Image != "" {
-			if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.Image); err == nil {
-				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, false, item.Params.ShrinkImage)
+		} else if p.Image != "" {
+			if iconBytes, err := base64.StdEncoding.DecodeString(p.Image); err == nil {
+				statusbar.SetMenuItemIcon(pm.itemId, index, iconBytes, false, p.ShrinkImage)
 			}
 		}
 

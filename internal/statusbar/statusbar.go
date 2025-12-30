@@ -11,9 +11,9 @@ void setTitle(int itemId, const char *title);
 void setIcon(int itemId, const void *data, int length, int isTemplate);
 void clearMenu(int itemId);
 void addMenuItem(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator);
-void addMenuItemWithColor(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor);
+void addMenuItemStyled(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor, const char *font, int fontSize, const char *keyEquiv, int isAlternate);
 void addSubmenu(int itemId, const char *title);
-void addSubmenuItem(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor);
+void addSubmenuItemStyled(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor, const char *font, int fontSize, const char *keyEquiv, int isAlternate);
 void addNestedSubmenu(int itemId, const char *parentSubmenuTitle, const char *title);
 void setMenuItemIcon(int itemId, int menuItemIndex, const void *data, int length, int isTemplate, int shrink);
 void removeStatusItem(int itemId);
@@ -83,6 +83,18 @@ func AddMenuItem(itemId int, menuItemIndex int, title string, disabled bool, isS
 }
 
 func AddMenuItemWithColor(itemId int, menuItemIndex int, title string, disabled bool, isSeparator bool, color string) {
+	AddMenuItemStyled(itemId, menuItemIndex, title, disabled, isSeparator, color, "", 0, "", false)
+}
+
+type MenuItemStyle struct {
+	Color     string
+	Font      string
+	Size      int
+	Key       string
+	Alternate bool
+}
+
+func AddMenuItemStyled(itemId int, menuItemIndex int, title string, disabled bool, isSeparator bool, color string, font string, size int, key string, alternate bool) {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))
 
@@ -94,14 +106,30 @@ func AddMenuItemWithColor(itemId int, menuItemIndex int, title string, disabled 
 	if isSeparator {
 		separatorInt = 1
 	}
-
-	if color == "" {
-		C.addMenuItem(C.int(itemId), C.int(menuItemIndex), cTitle, C.int(disabledInt), C.int(separatorInt))
-	} else {
-		cColor := C.CString(color)
-		defer C.free(unsafe.Pointer(cColor))
-		C.addMenuItemWithColor(C.int(itemId), C.int(menuItemIndex), cTitle, C.int(disabledInt), C.int(separatorInt), cColor)
+	alternateInt := 0
+	if alternate {
+		alternateInt = 1
 	}
+
+	var cColor *C.char
+	if color != "" {
+		cColor = C.CString(color)
+		defer C.free(unsafe.Pointer(cColor))
+	}
+
+	var cFont *C.char
+	if font != "" {
+		cFont = C.CString(font)
+		defer C.free(unsafe.Pointer(cFont))
+	}
+
+	var cKey *C.char
+	if key != "" {
+		cKey = C.CString(key)
+		defer C.free(unsafe.Pointer(cKey))
+	}
+
+	C.addMenuItemStyled(C.int(itemId), C.int(menuItemIndex), cTitle, C.int(disabledInt), C.int(separatorInt), cColor, cFont, C.int(size), cKey, C.int(alternateInt))
 }
 
 func AddSubmenu(itemId int, title string) {
@@ -111,6 +139,10 @@ func AddSubmenu(itemId int, title string) {
 }
 
 func AddSubmenuItem(itemId int, submenuTitle string, menuItemIndex int, title string, disabled bool, isSeparator bool, color string) {
+	AddSubmenuItemStyled(itemId, submenuTitle, menuItemIndex, title, disabled, isSeparator, color, "", 0, "", false)
+}
+
+func AddSubmenuItemStyled(itemId int, submenuTitle string, menuItemIndex int, title string, disabled bool, isSeparator bool, color string, font string, size int, key string, alternate bool) {
 	cSubmenuTitle := C.CString(submenuTitle)
 	defer C.free(unsafe.Pointer(cSubmenuTitle))
 	cTitle := C.CString(title)
@@ -124,6 +156,10 @@ func AddSubmenuItem(itemId int, submenuTitle string, menuItemIndex int, title st
 	if isSeparator {
 		separatorInt = 1
 	}
+	alternateInt := 0
+	if alternate {
+		alternateInt = 1
+	}
 
 	var cColor *C.char
 	if color != "" {
@@ -131,7 +167,19 @@ func AddSubmenuItem(itemId int, submenuTitle string, menuItemIndex int, title st
 		defer C.free(unsafe.Pointer(cColor))
 	}
 
-	C.addSubmenuItem(C.int(itemId), cSubmenuTitle, C.int(menuItemIndex), cTitle, C.int(disabledInt), C.int(separatorInt), cColor)
+	var cFont *C.char
+	if font != "" {
+		cFont = C.CString(font)
+		defer C.free(unsafe.Pointer(cFont))
+	}
+
+	var cKey *C.char
+	if key != "" {
+		cKey = C.CString(key)
+		defer C.free(unsafe.Pointer(cKey))
+	}
+
+	C.addSubmenuItemStyled(C.int(itemId), cSubmenuTitle, C.int(menuItemIndex), cTitle, C.int(disabledInt), C.int(separatorInt), cColor, cFont, C.int(size), cKey, C.int(alternateInt))
 }
 
 func AddNestedSubmenu(itemId int, parentSubmenuTitle string, title string) {

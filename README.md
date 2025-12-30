@@ -4,7 +4,7 @@ A lightweight fork of [xbar](https://github.com/matryer/xbar) that uses native m
 
 ## Features
 
-- 99% compatibility with existing xbar plugins
+- 100% compatibility with existing xbar plugins
 - Native macOS menu bar integration via custom CGO/NSStatusBar
 - No Wails/WebView (no plugin browser)
 - Minimal memory footprint: ~20MB vs 120MB+
@@ -27,14 +27,8 @@ I decided to fork, surgically remove Wails and replace it with systray. I wish I
 
 **New:** Custom CGO/Objective-C wrapper for NSStatusBar (`internal/statusbar/`), menu builder (`internal/menu/`), and app logic (`internal/app/`).
 
-### Plugin parameters
+### New plugin parameters
 
-**Unsupported:**
-- `font`/`size` - Custom fonts require more complex NSAttributedString handling. I did not need this for my use case.
-- `key` - Keyboard shortcuts for menu items. NSMenuItem supports this but I have not implemented it.
-- `alternate` - Shows alternate item when holding Option key. Would need extra logic to track modifier keys.
-
-**New:**
 - `shrinkImage` - When `true`, resizes images to 16x16, useful if you want to show well aligned icons. Default is `false` (original size, same as xbar).
 
 ## Writing Plugins

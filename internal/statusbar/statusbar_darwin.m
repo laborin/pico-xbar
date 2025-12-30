@@ -22,6 +22,9 @@ static NSMutableDictionary *menuDelegates = nil;
 
 // Forward declarations
 void addMenuItemWithColor(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor);
+void addMenuItemStyled(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor, const char *font, int fontSize, const char *keyEquiv, int isAlternate);
+void addSubmenuItem(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor);
+void addSubmenuItemStyled(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor, const char *font, int fontSize, const char *keyEquiv, int isAlternate);
 
 static NSMenu* findSubmenuByTitle(NSMenu *menu, NSString *title) {
     for (NSMenuItem *item in [menu itemArray]) {
@@ -178,8 +181,14 @@ void addMenuItem(int itemId, int menuItemIndex, const char *title, int disabled,
 }
 
 void addMenuItemWithColor(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor) {
+    addMenuItemStyled(itemId, menuItemIndex, title, disabled, isSeparator, hexColor, NULL, 0, NULL, 0);
+}
+
+void addMenuItemStyled(int itemId, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor, const char *font, int fontSize, const char *keyEquiv, int isAlternate) {
     NSString *nsTitle = [NSString stringWithUTF8String:title];
     NSString *nsColor = hexColor ? [NSString stringWithUTF8String:hexColor] : nil;
+    NSString *nsFont = font ? [NSString stringWithUTF8String:font] : nil;
+    NSString *nsKeyEquiv = keyEquiv ? [NSString stringWithUTF8String:keyEquiv] : @"";
 
     dispatch_block_t block = ^{
         NSMenu *menu = [menus objectForKey:@(itemId)];
@@ -188,20 +197,38 @@ void addMenuItemWithColor(int itemId, int menuItemIndex, const char *title, int 
             if (isSeparator) {
                 [menu addItem:[NSMenuItem separatorItem]];
             } else {
-                NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:nsTitle action:@selector(menuItemClicked:) keyEquivalent:@""];
+                NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:nsTitle action:@selector(menuItemClicked:) keyEquivalent:nsKeyEquiv];
                 [menuItem setTag:menuItemIndex];
                 [menuItem setTarget:delegate];
                 if (disabled) {
                     [menuItem setEnabled:NO];
                 }
+                if (isAlternate) {
+                    [menuItem setAlternate:YES];
+                    [menuItem setKeyEquivalentModifierMask:NSEventModifierFlagOption];
+                }
 
+                NSMutableDictionary *attrs = [NSMutableDictionary dictionary];
                 if (nsColor != nil) {
                     NSColor *color = colorFromHex(nsColor);
                     if (color != nil) {
-                        NSDictionary *attrs = @{NSForegroundColorAttributeName: color};
-                        NSAttributedString *attrTitle = [[NSAttributedString alloc] initWithString:nsTitle attributes:attrs];
-                        [menuItem setAttributedTitle:attrTitle];
+                        [attrs setObject:color forKey:NSForegroundColorAttributeName];
                     }
+                }
+                if (nsFont != nil || fontSize > 0) {
+                    NSFont *fontObj = nil;
+                    CGFloat size = fontSize > 0 ? (CGFloat)fontSize : [NSFont systemFontSize];
+                    if (nsFont != nil) {
+                        fontObj = [NSFont fontWithName:nsFont size:size];
+                    }
+                    if (fontObj == nil) {
+                        fontObj = [NSFont systemFontOfSize:size];
+                    }
+                    [attrs setObject:fontObj forKey:NSFontAttributeName];
+                }
+                if ([attrs count] > 0) {
+                    NSAttributedString *attrTitle = [[NSAttributedString alloc] initWithString:nsTitle attributes:attrs];
+                    [menuItem setAttributedTitle:attrTitle];
                 }
 
                 [menu addItem:menuItem];
@@ -238,9 +265,15 @@ void addSubmenu(int itemId, const char *title) {
 }
 
 void addSubmenuItem(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor) {
+    addSubmenuItemStyled(itemId, submenuTitle, menuItemIndex, title, disabled, isSeparator, hexColor, NULL, 0, NULL, 0);
+}
+
+void addSubmenuItemStyled(int itemId, const char *submenuTitle, int menuItemIndex, const char *title, int disabled, int isSeparator, const char *hexColor, const char *font, int fontSize, const char *keyEquiv, int isAlternate) {
     NSString *nsSubmenuTitle = [NSString stringWithUTF8String:submenuTitle];
     NSString *nsTitle = [NSString stringWithUTF8String:title];
     NSString *nsColor = hexColor ? [NSString stringWithUTF8String:hexColor] : nil;
+    NSString *nsFont = font ? [NSString stringWithUTF8String:font] : nil;
+    NSString *nsKeyEquiv = keyEquiv ? [NSString stringWithUTF8String:keyEquiv] : @"";
 
     dispatch_block_t block = ^{
         NSMenu *menu = [menus objectForKey:@(itemId)];
@@ -251,20 +284,38 @@ void addSubmenuItem(int itemId, const char *submenuTitle, int menuItemIndex, con
                 if (isSeparator) {
                     [submenu addItem:[NSMenuItem separatorItem]];
                 } else {
-                    NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:nsTitle action:@selector(menuItemClicked:) keyEquivalent:@""];
+                    NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:nsTitle action:@selector(menuItemClicked:) keyEquivalent:nsKeyEquiv];
                     [menuItem setTag:menuItemIndex];
                     [menuItem setTarget:delegate];
                     if (disabled) {
                         [menuItem setEnabled:NO];
                     }
+                    if (isAlternate) {
+                        [menuItem setAlternate:YES];
+                        [menuItem setKeyEquivalentModifierMask:NSEventModifierFlagOption];
+                    }
 
+                    NSMutableDictionary *attrs = [NSMutableDictionary dictionary];
                     if (nsColor != nil) {
                         NSColor *color = colorFromHex(nsColor);
                         if (color != nil) {
-                            NSDictionary *attrs = @{NSForegroundColorAttributeName: color};
-                            NSAttributedString *attrTitle = [[NSAttributedString alloc] initWithString:nsTitle attributes:attrs];
-                            [menuItem setAttributedTitle:attrTitle];
+                            [attrs setObject:color forKey:NSForegroundColorAttributeName];
                         }
+                    }
+                    if (nsFont != nil || fontSize > 0) {
+                        NSFont *fontObj = nil;
+                        CGFloat size = fontSize > 0 ? (CGFloat)fontSize : [NSFont systemFontSize];
+                        if (nsFont != nil) {
+                            fontObj = [NSFont fontWithName:nsFont size:size];
+                        }
+                        if (fontObj == nil) {
+                            fontObj = [NSFont systemFontOfSize:size];
+                        }
+                        [attrs setObject:fontObj forKey:NSFontAttributeName];
+                    }
+                    if ([attrs count] > 0) {
+                        NSAttributedString *attrTitle = [[NSAttributedString alloc] initWithString:nsTitle attributes:attrs];
+                        [menuItem setAttributedTitle:attrTitle];
                     }
 
                     [submenu addItem:menuItem];
