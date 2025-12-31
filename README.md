@@ -28,6 +28,10 @@ I decided to fork, surgically remove Wails and replace it with systray. I wish I
 
 **New:** Custom CGO/Objective-C wrapper for NSStatusBar (`internal/statusbar/`), menu builder (`internal/menu/`), and app logic (`internal/app/`).
 
+### Behavioral changes
+
+Menus are updated in-place with a simple diffing mechanism. Renaming a plugin to change its frequency affects it in real-time. Other filename changes or plugin deletion unloads the plugin instead of showing a warning.
+
 ### New plugin parameters
 
 - `shrinkImage` - When `true`, resizes images to 16x16, useful if you want to show well aligned icons. Default is `false` (original size, same as xbar).

@@ -2,6 +2,7 @@ package menu
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -24,15 +25,59 @@ const (
 	menuIndexOpenTerminal   = -6
 	menuIndexStartAtLogin   = -7
 	menuIndexAbout          = -8
+	menuIndexRefreshAll     = -9
 )
 
+var globalRefreshAllFunc func()
+
+func SetRefreshAllHandler(f func()) {
+	globalRefreshAllFunc = f
+}
+
+type menuItemState struct {
+	tag           int
+	text          string
+	disabled      bool
+	separator     bool
+	isSubmenu     bool
+	submenuTitle  string
+	color         string
+	font          string
+	size          int
+	key           string
+	alternate     bool
+	imageHash     string
+	templateImage bool
+	shrinkImage   bool
+	children      []*menuItemState
+}
+
+func (s *menuItemState) equals(other *menuItemState) bool {
+	if s == nil || other == nil {
+		return s == other
+	}
+	return s.text == other.text &&
+		s.disabled == other.disabled &&
+		s.separator == other.separator &&
+		s.isSubmenu == other.isSubmenu &&
+		s.color == other.color &&
+		s.font == other.font &&
+		s.size == other.size &&
+		s.key == other.key &&
+		s.alternate == other.alternate &&
+		s.imageHash == other.imageHash
+}
+
 type PluginMenu struct {
-	itemId    int
-	plugin    *plugins.Plugin
-	ctx       context.Context
-	mu        sync.Mutex
-	menuItems map[int]*plugins.Item
-	nextIndex int
+	itemId        int
+	plugin        *plugins.Plugin
+	ctx           context.Context
+	mu            sync.Mutex
+	menuItems     map[int]*plugins.Item
+	nextIndex     int
+	prevState     []*menuItemState
+	hadItems      bool
+	prevCommand   string
 }
 
 func NewPluginMenu(p *plugins.Plugin) *PluginMenu {
@@ -61,7 +106,24 @@ func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
 	}
 
 	pm.updateTitle()
-	pm.rebuildMenu()
+
+	commandChanged := pm.prevCommand != "" && pm.prevCommand != p.Command
+	pm.prevCommand = p.Command
+
+	hasItems := len(pm.plugin.Items.ExpandedItems) > 0
+	if pm.hadItems != hasItems || commandChanged {
+		pm.rebuildMenu()
+		return
+	}
+
+	newState := pm.buildState(pm.plugin.Items.ExpandedItems)
+	if pm.prevState == nil {
+		pm.rebuildMenu()
+		return
+	}
+
+	pm.diffAndUpdate(pm.prevState, newState, "")
+	pm.prevState = newState
 }
 
 func (pm *PluginMenu) UpdateLabel(p *plugins.Plugin) {
@@ -110,6 +172,7 @@ func (pm *PluginMenu) rebuildMenu() {
 
 	if len(items) == 0 {
 		statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, "Refresh", false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexRefreshAll, "Refresh All", false, false)
 		statusbar.AddSubmenu(pm.itemId, pluginSubmenu)
 		pm.addPluginSubmenuItems(pluginSubmenu)
 		statusbar.AddMenuItem(pm.itemId, menuIndexStartAtLogin, "Start at Login", false, false)
@@ -124,6 +187,7 @@ func (pm *PluginMenu) rebuildMenu() {
 		}
 		statusbar.AddSubmenu(pm.itemId, "pico-xbar")
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefresh, "Refresh", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefreshAll, "Refresh All", false, false, "")
 		statusbar.AddNestedSubmenu(pm.itemId, "pico-xbar", pluginSubmenu)
 		pm.addPluginSubmenuItems(pluginSubmenu)
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexStartAtLogin, "Start at Login", false, false, "")
@@ -132,6 +196,9 @@ func (pm *PluginMenu) rebuildMenu() {
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", -101, "", false, true, "")
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexQuit, "Quit", false, false, "")
 	}
+
+	pm.prevState = pm.buildState(items)
+	pm.hadItems = len(items) > 0
 }
 
 func (pm *PluginMenu) addPluginSubmenuItems(submenuName string) {
@@ -193,38 +260,235 @@ func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
 	}
 }
 
+func (pm *PluginMenu) buildState(items []*plugins.Item) []*menuItemState {
+	var states []*menuItemState
+	for _, item := range items {
+		state := pm.buildItemState(item)
+		states = append(states, state)
+	}
+	return states
+}
+
+func (pm *PluginMenu) buildItemState(item *plugins.Item) *menuItemState {
+	state := &menuItemState{
+		text:      item.DisplayText(),
+		separator: item.Params.Separator,
+		disabled:  item.Params.Disabled || item.Action() == nil,
+		color:     item.Params.Color,
+		font:      item.Params.Font,
+		size:      item.Params.Size,
+		key:       item.Params.Key,
+		alternate: item.Params.Alternate,
+	}
+
+	if item.Params.TemplateImage != "" {
+		state.imageHash = fmt.Sprintf("%x", md5.Sum([]byte(item.Params.TemplateImage)))
+		state.templateImage = true
+	} else if item.Params.Image != "" {
+		state.imageHash = fmt.Sprintf("%x", md5.Sum([]byte(item.Params.Image)))
+		state.templateImage = false
+	}
+	state.shrinkImage = item.Params.ShrinkImage
+
+	if len(item.Items) > 0 {
+		state.isSubmenu = true
+		state.submenuTitle = state.text
+		for _, child := range item.Items {
+			state.children = append(state.children, pm.buildItemState(child))
+		}
+	}
+
+	return state
+}
+
+func (pm *PluginMenu) diffAndUpdate(oldState, newState []*menuItemState, parentSubmenu string) {
+	oldLen := len(oldState)
+	newLen := len(newState)
+	minLen := oldLen
+	if newLen < minLen {
+		minLen = newLen
+	}
+
+	for i := oldLen - 1; i >= newLen; i-- {
+		if parentSubmenu == "" {
+			statusbar.RemoveMenuItemAtIndex(pm.itemId, i)
+		} else {
+			statusbar.RemoveSubmenuItemAtIndex(pm.itemId, parentSubmenu, i)
+		}
+	}
+
+	for i := 0; i < minLen; i++ {
+		oldItem := oldState[i]
+		newItem := newState[i]
+
+		if oldItem.isSubmenu && newItem.isSubmenu && oldItem.submenuTitle == newItem.submenuTitle {
+			pm.diffAndUpdate(oldItem.children, newItem.children, newItem.submenuTitle)
+			continue
+		}
+
+		if oldItem.isSubmenu != newItem.isSubmenu {
+			if parentSubmenu == "" {
+				statusbar.RemoveMenuItemAtIndex(pm.itemId, i)
+				pm.insertItemAtIndex(newItem, i, parentSubmenu)
+			} else {
+				statusbar.RemoveSubmenuItemAtIndex(pm.itemId, parentSubmenu, i)
+				pm.insertItemAtIndex(newItem, i, parentSubmenu)
+			}
+			continue
+		}
+
+		if !oldItem.equals(newItem) {
+			pm.updateItemAtIndex(newItem, i, parentSubmenu)
+		}
+	}
+
+	for i := oldLen; i < newLen; i++ {
+		pm.insertItemAtIndex(newState[i], i, parentSubmenu)
+	}
+}
+
+func (pm *PluginMenu) insertItemAtIndex(state *menuItemState, atIndex int, parentSubmenu string) {
+	tag := pm.nextIndex
+	pm.nextIndex++
+
+	if state.separator {
+		if parentSubmenu == "" {
+			statusbar.InsertMenuItemStyledAtIndex(pm.itemId, atIndex, tag, "", false, true, "", "", 0, "", false)
+		} else {
+			statusbar.InsertSubmenuItemStyledAtIndex(pm.itemId, parentSubmenu, atIndex, tag, "", false, true, "", "", 0, "", false)
+		}
+		return
+	}
+
+	if state.isSubmenu {
+		if parentSubmenu == "" {
+			statusbar.InsertSubmenuAtIndex(pm.itemId, atIndex, state.submenuTitle)
+		} else {
+			statusbar.InsertNestedSubmenuAtIndex(pm.itemId, parentSubmenu, atIndex, state.submenuTitle)
+		}
+		for j, child := range state.children {
+			pm.insertItemAtIndex(child, j, state.submenuTitle)
+		}
+		return
+	}
+
+	if parentSubmenu == "" {
+		statusbar.InsertMenuItemStyledAtIndex(pm.itemId, atIndex, tag, state.text, state.disabled, false, state.color, state.font, state.size, state.key, state.alternate)
+	} else {
+		statusbar.InsertSubmenuItemStyledAtIndex(pm.itemId, parentSubmenu, atIndex, tag, state.text, state.disabled, false, state.color, state.font, state.size, state.key, state.alternate)
+	}
+
+	if state.imageHash != "" {
+		pm.setImageForState(state, tag)
+	}
+
+	state.tag = tag
+}
+
+func (pm *PluginMenu) updateItemAtIndex(state *menuItemState, atIndex int, parentSubmenu string) {
+	tag := pm.nextIndex
+	pm.nextIndex++
+
+	if state.separator {
+		return
+	}
+
+	if parentSubmenu == "" {
+		statusbar.UpdateMenuItemAtIndex(pm.itemId, atIndex, tag, state.text, state.disabled, state.separator, state.color, state.font, state.size, state.key, state.alternate)
+	} else {
+		statusbar.UpdateSubmenuItemAtIndex(pm.itemId, parentSubmenu, atIndex, tag, state.text, state.disabled, state.separator, state.color, state.font, state.size, state.key, state.alternate)
+	}
+
+	if state.imageHash != "" {
+		pm.setImageForState(state, tag)
+	}
+
+	state.tag = tag
+}
+
+func (pm *PluginMenu) setImageForState(state *menuItemState, tag int) {
+	items := pm.plugin.Items.ExpandedItems
+	item := pm.findItemByText(items, state.text)
+	if item == nil {
+		return
+	}
+
+	if item.Params.TemplateImage != "" {
+		if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.TemplateImage); err == nil {
+			statusbar.SetMenuItemIcon(pm.itemId, tag, iconBytes, true, state.shrinkImage)
+		}
+	} else if item.Params.Image != "" {
+		if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.Image); err == nil {
+			statusbar.SetMenuItemIcon(pm.itemId, tag, iconBytes, false, state.shrinkImage)
+		}
+	}
+
+	pm.menuItems[tag] = item
+}
+
+func (pm *PluginMenu) findItemByText(items []*plugins.Item, text string) *plugins.Item {
+	for _, item := range items {
+		if item.DisplayText() == text {
+			return item
+		}
+		if len(item.Items) > 0 {
+			if found := pm.findItemByText(item.Items, text); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
 func (pm *PluginMenu) HandleClick(menuItemIndex int) {
 	pm.mu.Lock()
 	ctx := pm.ctx
 	plugin := pm.plugin
 	item := pm.menuItems[menuItemIndex]
+	removed := pm.itemId == -1
 	pm.mu.Unlock()
 
 	switch menuItemIndex {
-	case menuIndexRefresh:
-		plugin.TriggerRefresh()
-	case menuIndexOpenPlugin:
-		exec.Command("open", plugin.Command).Start()
-	case menuIndexCopyPath:
-		statusbar.CopyToClipboard(plugin.Command)
-		statusbar.ShowAlert("Path Copied", "Plugin path copied to clipboard.")
-	case menuIndexShowInFinder:
-		exec.Command("open", "-R", plugin.Command).Start()
-	case menuIndexOpenTerminal:
-		pluginDir := filepath.Dir(plugin.Command)
-		exec.Command("open", "-a", "Terminal", pluginDir).Start()
+	case menuIndexRefreshAll:
+		if globalRefreshAllFunc != nil {
+			go globalRefreshAllFunc()
+		}
 	case menuIndexStartAtLogin:
 		if err := loginitem.Toggle(); err != nil {
 			statusbar.ShowAlert("Error", "Failed to toggle login item: "+err.Error())
 		}
-		statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
+		if !removed {
+			statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
+		}
 	case menuIndexAbout:
 		aboutMsg := fmt.Sprintf("Version %s\n\nBy Emmanuel Laborin\nBased on xbar by Mat Ryer", version.Version)
 		statusbar.ShowAlert("pico-xbar", aboutMsg)
 	case menuIndexQuit:
 		statusbar.Stop()
+	case menuIndexRefresh:
+		if !removed {
+			plugin.TriggerRefresh()
+		}
+	case menuIndexOpenPlugin:
+		if !removed {
+			exec.Command("open", plugin.Command).Start()
+		}
+	case menuIndexCopyPath:
+		if !removed {
+			statusbar.CopyToClipboard(plugin.Command)
+			statusbar.ShowAlert("Path Copied", "Plugin path copied to clipboard.")
+		}
+	case menuIndexShowInFinder:
+		if !removed {
+			exec.Command("open", "-R", plugin.Command).Start()
+		}
+	case menuIndexOpenTerminal:
+		if !removed {
+			pluginDir := filepath.Dir(plugin.Command)
+			exec.Command("open", "-a", "Terminal", pluginDir).Start()
+		}
 	default:
-		if item != nil {
+		if !removed && item != nil {
 			action := item.Action()
 			if action != nil {
 				action(ctx)
@@ -237,13 +501,26 @@ func (pm *PluginMenu) ItemId() int {
 	return pm.itemId
 }
 
-func ShowDefault(pluginDir string, onQuit func()) int {
+func (pm *PluginMenu) Remove() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if pm.itemId != -1 {
+		statusbar.RemoveStatusItem(pm.itemId)
+		pm.itemId = -1
+	}
+}
+
+func ShowDefault(pluginDir string, onRefreshAll func(), onQuit func()) int {
 	itemId := statusbar.CreateStatusItem()
 	statusbar.SetTitle(itemId, "xbar")
 
 	statusbar.AddMenuItem(itemId, 0, "Open Plugin Folder...", false, false)
+	statusbar.AddMenuItem(itemId, 1, "Refresh All", false, false)
+	statusbar.AddMenuItem(itemId, 2, "Start at Login", false, false)
+	statusbar.SetMenuItemState(itemId, 2, loginitem.IsEnabled())
 	statusbar.AddMenuItem(itemId, -1, "", false, true)
-	statusbar.AddMenuItem(itemId, 1, "Quit", false, false)
+	statusbar.AddMenuItem(itemId, 3, "Quit", false, false)
 
 	statusbar.SetClickHandler(func(id int, menuIndex int) {
 		if id != itemId {
@@ -254,6 +531,15 @@ func ShowDefault(pluginDir string, onQuit func()) int {
 			os.MkdirAll(pluginDir, 0755)
 			exec.Command("open", pluginDir).Start()
 		case 1:
+			if onRefreshAll != nil {
+				go onRefreshAll()
+			}
+		case 2:
+			if err := loginitem.Toggle(); err != nil {
+				statusbar.ShowAlert("Error", "Failed to toggle login item: "+err.Error())
+			}
+			statusbar.SetMenuItemState(itemId, 2, loginitem.IsEnabled())
+		case 3:
 			if onQuit != nil {
 				onQuit()
 			}

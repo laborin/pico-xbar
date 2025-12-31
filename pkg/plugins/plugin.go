@@ -24,6 +24,8 @@ type (
 	// CycleFunc is a callback fired after a Plugin's CycleIndex
 	// has changed.
 	CycleFunc func(ctx context.Context, p *Plugin)
+	// RemoveFunc is a callback fired when a plugin should be removed.
+	RemoveFunc func()
 	// DebugFunc is a function that records debug information.
 	DebugFunc func(format string, v ...interface{})
 )
@@ -54,6 +56,8 @@ type Plugin struct {
 	OnRefresh RefreshFunc
 	// OnCycle is called when the Plugin's CycleIndex has changed.
 	OnCycle CycleFunc
+	// OnRemove is called when the plugin file no longer exists.
+	OnRemove RemoveFunc
 
 	// Stdout is a writer that will have stdout written to if not nil.
 	Stdout io.Writer
@@ -189,8 +193,10 @@ func (p *Plugin) Run(ctx context.Context) {
 		p.Debugf("ERR: %s", err)
 		p.OnErr(err)
 	}
-	p.Refresh(ctx)
-	cycleReset := make(chan struct{})
+	if p.Refresh(ctx) {
+		return
+	}
+	cycleReset := make(chan struct{}, 1)
 	var wg sync.WaitGroup
 	// cycle loop
 	wg.Add(1)
@@ -222,12 +228,22 @@ func (p *Plugin) Run(ctx context.Context) {
 			select {
 			case <-p.refreshSignal:
 				p.Debugf("refreshing: %s", filepath.Base(p.Command))
-				p.Refresh(ctx)
-				cycleReset <- struct{}{}
+				if p.Refresh(ctx) {
+					return
+				}
+				select {
+				case cycleReset <- struct{}{}:
+				default:
+				}
 			case <-time.After(p.RefreshInterval.Duration()):
 				p.Debugf("refreshing: %s", filepath.Base(p.Command))
-				p.Refresh(ctx)
-				cycleReset <- struct{}{}
+				if p.Refresh(ctx) {
+					return
+				}
+				select {
+				case cycleReset <- struct{}{}:
+				default:
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -259,8 +275,13 @@ func (p *Plugin) TriggerRefresh() {
 // Refresh executes and updates the Plugin.
 // The menu is updated in an instant, unlike with Refresh().
 // Run calls this method periodically.
-func (p *Plugin) Refresh(ctx context.Context) {
+// Returns true if the plugin was removed and should stop.
+func (p *Plugin) Refresh(ctx context.Context) bool {
 	err := p.refresh(ctx)
+	if err == errPluginRemoved {
+		p.Debugf("plugin file removed, stopping")
+		return true
+	}
 	if err != nil {
 		p.Debugf("ERR: %s", err)
 		p.OnErr(err)
@@ -269,6 +290,7 @@ func (p *Plugin) Refresh(ctx context.Context) {
 	if p.OnRefresh != nil {
 		p.OnRefresh(ctx, p, err)
 	}
+	return false
 }
 
 // CurrentCycleItem returns the Item related to the current cycle.
@@ -288,9 +310,70 @@ func (p *Plugin) RunInTerminal(appleScriptTemplate3 string) error {
 	return p.runInTerminal(appleScriptTemplate3, p.Command, "", p.Variables)
 }
 
+var errPluginRemoved = errors.New("plugin removed")
+
+// findRenamedPlugin looks for a plugin with the same base name but different refresh interval
+func (p *Plugin) findRenamedPlugin() (string, RefreshInterval, bool) {
+	dir := filepath.Dir(p.Command)
+	filename := filepath.Base(p.Command)
+
+	ext := filepath.Ext(filename)
+	nameWithoutExt := strings.TrimSuffix(filename, ext)
+
+	intervalStr := findIntervalInFilename(filename)
+	if intervalStr == "" {
+		return "", RefreshInterval{}, false
+	}
+
+	baseName := strings.TrimSuffix(nameWithoutExt, "."+intervalStr)
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", RefreshInterval{}, false
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == filename {
+			continue
+		}
+		if !strings.HasPrefix(name, baseName+".") || !strings.HasSuffix(name, ext) {
+			continue
+		}
+
+		newInterval, err := ParseFilenameInterval(name)
+		if err != nil {
+			continue
+		}
+
+		newPath := filepath.Join(dir, name)
+		if _, err := os.Stat(newPath); err == nil {
+			return newPath, newInterval, true
+		}
+	}
+
+	return "", RefreshInterval{}, false
+}
+
 // refresh runs the plugin and parses the output, updating the
 // state of Plugin.
 func (p *Plugin) refresh(ctx context.Context) error {
+	if _, err := os.Stat(p.Command); os.IsNotExist(err) {
+		if newPath, newInterval, found := p.findRenamedPlugin(); found {
+			p.Debugf("plugin renamed: %s -> %s", filepath.Base(p.Command), filepath.Base(newPath))
+			p.Command = newPath
+			p.RefreshInterval = newInterval
+		} else {
+			if p.OnRemove != nil {
+				p.OnRemove()
+			}
+			return errPluginRemoved
+		}
+	}
+
 	commandCtx, cancel := context.WithTimeout(ctx, p.Timeout)
 	defer cancel()
 	var path string
