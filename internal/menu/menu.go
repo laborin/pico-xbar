@@ -261,7 +261,7 @@ func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
 }
 
 func (pm *PluginMenu) buildState(items []*plugins.Item) []*menuItemState {
-	var states []*menuItemState
+	states := make([]*menuItemState, 0, len(items))
 	for _, item := range items {
 		state := pm.buildItemState(item)
 		states = append(states, state)
