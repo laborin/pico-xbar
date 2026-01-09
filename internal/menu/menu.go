@@ -326,14 +326,17 @@ func (pm *PluginMenu) diffAndUpdate(oldState, newState []*menuItemState, parentS
 			continue
 		}
 
-		if oldItem.isSubmenu != newItem.isSubmenu {
+		needsReplace := oldItem.isSubmenu != newItem.isSubmenu ||
+			oldItem.separator != newItem.separator ||
+			(oldItem.isSubmenu && newItem.isSubmenu && oldItem.submenuTitle != newItem.submenuTitle)
+
+		if needsReplace {
 			if parentSubmenu == "" {
 				statusbar.RemoveMenuItemAtIndex(pm.itemId, i)
-				pm.insertItemAtIndex(newItem, i, parentSubmenu)
 			} else {
 				statusbar.RemoveSubmenuItemAtIndex(pm.itemId, parentSubmenu, i)
-				pm.insertItemAtIndex(newItem, i, parentSubmenu)
 			}
+			pm.insertItemAtIndex(newItem, i, parentSubmenu)
 			continue
 		}
 
