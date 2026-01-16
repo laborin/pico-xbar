@@ -2,7 +2,6 @@ package metadata
 
 import (
 	"fmt"
-	"github.com/leaanthony/go-ansi-parser"
 	"math/rand"
 	"os"
 	"path"
@@ -11,7 +10,14 @@ import (
 	"strings"
 	"time"
 
+	ansi "github.com/leaanthony/go-ansi-parser"
 	"github.com/pkg/errors"
+)
+
+var (
+	bitbarMetaRegexp = regexp.MustCompile(`<([bitbar].*?)>(.*)</[bitbar].*?>`)
+	xbarMetaRegexp   = regexp.MustCompile(`<([xbar].*?)>(.*)</[xbar].*?>`)
+	varLineRegexp    = regexp.MustCompile(`(.+)\((.+)\):\s(.+)`)
 )
 
 // Plugin is the plugin metadata payload returned by Parse.
@@ -206,15 +212,7 @@ func Parse(debugf DebugFunc, filename, s string) (Plugin, error) {
 	p.Dir = path.Dir(filename)
 	p.PathSegments = strings.Split(path.Dir(filename), string(os.PathSeparator))
 	p.CategoryPathSegments = CategoryPathSegments(path.Dir(filename))
-	bitbarMatches, err := regexp.Compile(`<([bitbar].*?)>(.*)</[bitbar].*?>`)
-	if err != nil {
-		return p, err
-	}
-	xbarMatches, err := regexp.Compile(`<([xbar].*?)>(.*)</[xbar].*?>`)
-	if err != nil {
-		return p, err
-	}
-	submatchall := append(bitbarMatches.FindAllStringSubmatch(s, -1), xbarMatches.FindAllStringSubmatch(s, -1)...)
+	submatchall := append(bitbarMetaRegexp.FindAllStringSubmatch(s, -1), xbarMetaRegexp.FindAllStringSubmatch(s, -1)...)
 	for _, element := range submatchall {
 		debugf("%s: %s ", element[1], element[2])
 		switch strings.ToLower(element[1]) {
@@ -368,10 +366,6 @@ func RandomPlugins(pluginsByPath map[string][]Plugin, pathPrefix string, n int) 
 
 func parsePluginVar(s string) (PluginVar, error) {
 	var v PluginVar
-	varLineRegexp, err := regexp.Compile(`(.+)\((.+)\):\s(.+)`)
-	if err != nil {
-		return v, errors.Wrap(err, "var line regexp")
-	}
 	segments := varLineRegexp.FindAllStringSubmatch(s, -1)
 	if len(segments) != 1 {
 		return v, errParse{
