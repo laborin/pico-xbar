@@ -150,6 +150,11 @@ func (a *App) removePlugin(command string) {
 
 	if exists && entry != nil {
 		entry.cancel()
+		if entry.plugin != nil {
+			entry.plugin.OnRefresh = nil
+			entry.plugin.OnCycle = nil
+			entry.plugin.OnRemove = nil
+		}
 		if entry.menu != nil {
 			entry.menu.Remove()
 		}
