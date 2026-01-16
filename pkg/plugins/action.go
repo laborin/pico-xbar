@@ -118,7 +118,7 @@ func actionShell(debugf DebugFunc, item *Item, appleScriptTemplate, command stri
 		commandExec = command
 		commandArgs = params
 		debugf("exec: %s %s", commandExec, strings.Join(commandArgs, " "))
-		cmd := exec.CommandContext(context.Background(), commandExec, commandArgs...)
+		cmd := exec.CommandContext(ctx, commandExec, commandArgs...)
 		Setpgid(cmd)
 		// wd should be where the plugin is running
 		cmd.Dir = filepath.Dir(item.Plugin.Command)
