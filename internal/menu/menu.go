@@ -78,6 +78,8 @@ type PluginMenu struct {
 	prevState     []*menuItemState
 	hadItems      bool
 	prevCommand   string
+	prevTitle     string
+	prevImageHash string
 }
 
 func NewPluginMenu(p *plugins.Plugin) *PluginMenu {
@@ -122,6 +124,8 @@ func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
 		return
 	}
 
+	pm.menuItems = make(map[int]*plugins.Item)
+	pm.nextIndex = 0
 	pm.diffAndUpdate(pm.prevState, newState, "")
 	pm.prevState = newState
 }
@@ -141,19 +145,36 @@ func (pm *PluginMenu) UpdateLabel(p *plugins.Plugin) {
 func (pm *PluginMenu) updateTitle() {
 	item := pm.plugin.CurrentCycleItem()
 	if item == nil {
-		statusbar.SetTitle(pm.itemId, pm.plugin.CleanFilename())
+		title := pm.plugin.CleanFilename()
+		if title != pm.prevTitle {
+			statusbar.SetTitle(pm.itemId, title)
+			pm.prevTitle = title
+		}
 		return
 	}
 
-	statusbar.SetTitle(pm.itemId, item.DisplayText())
+	title := item.DisplayText()
+	if title != pm.prevTitle {
+		statusbar.SetTitle(pm.itemId, title)
+		pm.prevTitle = title
+	}
 
+	var imageHash string
 	if item.Params.TemplateImage != "" {
-		if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.TemplateImage); err == nil {
-			statusbar.SetIcon(pm.itemId, iconBytes, true)
+		imageHash = "t:" + item.Params.TemplateImage[:min(32, len(item.Params.TemplateImage))]
+		if imageHash != pm.prevImageHash {
+			if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.TemplateImage); err == nil {
+				statusbar.SetIcon(pm.itemId, iconBytes, true)
+			}
+			pm.prevImageHash = imageHash
 		}
 	} else if item.Params.Image != "" {
-		if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.Image); err == nil {
-			statusbar.SetIcon(pm.itemId, iconBytes, false)
+		imageHash = "i:" + item.Params.Image[:min(32, len(item.Params.Image))]
+		if imageHash != pm.prevImageHash {
+			if iconBytes, err := base64.StdEncoding.DecodeString(item.Params.Image); err == nil {
+				statusbar.SetIcon(pm.itemId, iconBytes, false)
+			}
+			pm.prevImageHash = imageHash
 		}
 	}
 }
@@ -512,6 +533,11 @@ func (pm *PluginMenu) Remove() {
 		statusbar.RemoveStatusItem(pm.itemId)
 		pm.itemId = -1
 	}
+	pm.plugin = nil
+	pm.menuItems = nil
+	pm.prevState = nil
+	pm.prevTitle = ""
+	pm.prevImageHash = ""
 }
 
 func ShowDefault(pluginDir string, onRefreshAll func(), onQuit func()) int {
