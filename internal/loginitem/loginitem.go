@@ -1,14 +1,30 @@
 package loginitem
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
 
 const (
-	bundleID   = "com.laborin.pico-xbar"
-	plistName  = bundleID + ".plist"
+	bundleID  = "com.laborin.pico-xbar"
+	plistName = bundleID + ".plist"
+	plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>` + bundleID + `</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/open</string>
+		<string>-a</string>
+		<string>pico-xbar</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+</dict>
+</plist>
+`
 )
 
 func launchAgentPath() (string, error) {
@@ -34,39 +50,12 @@ func Enable() error {
 		return err
 	}
 
-	execPath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
-	// Resolve symlinks to get the real path
-	execPath, err = filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return err
-	}
-
-	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>Label</key>
-	<string>%s</string>
-	<key>ProgramArguments</key>
-	<array>
-		<string>%s</string>
-	</array>
-	<key>RunAtLoad</key>
-	<true/>
-</dict>
-</plist>
-`, bundleID, execPath)
-
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	return os.WriteFile(path, []byte(plist), 0644)
+	return os.WriteFile(path, []byte(plistContent), 0644)
 }
 
 func Disable() error {
