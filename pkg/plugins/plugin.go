@@ -202,19 +202,36 @@ func (p *Plugin) Run(ctx context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		cycleTimer := time.NewTimer(p.CycleInterval)
+		defer cycleTimer.Stop()
 		for {
 			select {
 			case <-cycleReset:
 				// this will loop round and start the CycleInterval
 				// timer again.
 				p.CycleIndex = 0
+				if !cycleTimer.Stop() {
+					select {
+					case <-cycleTimer.C:
+					default:
+					}
+				}
+				cycleTimer.Reset(p.CycleInterval)
 				continue
 			case <-p.cycleSignal:
 				p.Debugf("cycling: %s", filepath.Base(p.Command))
 				p.cycle(ctx)
-			case <-time.After(p.CycleInterval):
+				if !cycleTimer.Stop() {
+					select {
+					case <-cycleTimer.C:
+					default:
+					}
+				}
+				cycleTimer.Reset(p.CycleInterval)
+			case <-cycleTimer.C:
 				p.Debugf("cycling: %s", filepath.Base(p.Command))
 				p.cycle(ctx)
+				cycleTimer.Reset(p.CycleInterval)
 			case <-ctx.Done():
 				return
 			}
@@ -224,6 +241,8 @@ func (p *Plugin) Run(ctx context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		refreshTimer := time.NewTimer(p.RefreshInterval.Duration())
+		defer refreshTimer.Stop()
 		for {
 			select {
 			case <-p.refreshSignal:
@@ -235,7 +254,14 @@ func (p *Plugin) Run(ctx context.Context) {
 				case cycleReset <- struct{}{}:
 				default:
 				}
-			case <-time.After(p.RefreshInterval.Duration()):
+				if !refreshTimer.Stop() {
+					select {
+					case <-refreshTimer.C:
+					default:
+					}
+				}
+				refreshTimer.Reset(p.RefreshInterval.Duration())
+			case <-refreshTimer.C:
 				p.Debugf("refreshing: %s", filepath.Base(p.Command))
 				if p.Refresh(ctx) {
 					return
@@ -244,6 +270,7 @@ func (p *Plugin) Run(ctx context.Context) {
 				case cycleReset <- struct{}{}:
 				default:
 				}
+				refreshTimer.Reset(p.RefreshInterval.Duration())
 			case <-ctx.Done():
 				return
 			}
