@@ -125,7 +125,6 @@ func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
 	}
 
 	pm.menuItems = make(map[int]*plugins.Item)
-	pm.nextIndex = 0
 	pm.diffAndUpdate(pm.prevState, newState, "")
 	pm.prevState = newState
 }
