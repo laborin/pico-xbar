@@ -26,10 +26,11 @@ const actionTimeout = 10 * time.Second
 // nil response indicates no action, so you must check
 // for nil before calling.
 // The following code should be called:
-//  actionFunc := item.Action()
-//  if actionFunc != nil {
-//  	actionFunc(ctx)
-//  }
+//
+//	actionFunc := item.Action()
+//	if actionFunc != nil {
+//		actionFunc(ctx)
+//	}
 func (i *Item) Action() ActionFunc {
 	debugf := DebugfNoop
 	if i.Plugin != nil {

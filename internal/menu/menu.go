@@ -17,15 +17,15 @@ import (
 )
 
 const (
-	menuIndexRefresh        = -1
-	menuIndexOpenPlugin     = -2
-	menuIndexQuit           = -3
-	menuIndexCopyPath       = -4
-	menuIndexShowInFinder   = -5
-	menuIndexOpenTerminal   = -6
-	menuIndexStartAtLogin   = -7
-	menuIndexAbout          = -8
-	menuIndexRefreshAll     = -9
+	menuIndexRefresh      = -1
+	menuIndexOpenPlugin   = -2
+	menuIndexQuit         = -3
+	menuIndexCopyPath     = -4
+	menuIndexShowInFinder = -5
+	menuIndexOpenTerminal = -6
+	menuIndexStartAtLogin = -7
+	menuIndexAbout        = -8
+	menuIndexRefreshAll   = -9
 )
 
 var globalRefreshAllFunc func()
