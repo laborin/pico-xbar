@@ -59,6 +59,7 @@ func (a *App) Start() {
 
 	statusbar.SetClickHandler(a.handleClick)
 	menu.SetRefreshAllHandler(a.RefreshAll)
+	a.startUpdateCheckLoop()
 
 	pluginList := a.loadPlugins()
 	if len(pluginList) == 0 {

@@ -520,6 +520,35 @@ void showAlertWithURL(const char *title, const char *message, const char *button
     }
 }
 
+void showAlertWithURLButtons(const char *title, const char *message, const char *primaryButtonLabel, const char *secondaryButtonLabel, const char *url) {
+    NSString *nsTitle = [NSString stringWithUTF8String:title];
+    NSString *nsMessage = [NSString stringWithUTF8String:message];
+    NSString *nsPrimaryButtonLabel = [NSString stringWithUTF8String:primaryButtonLabel];
+    NSString *nsSecondaryButtonLabel = [NSString stringWithUTF8String:secondaryButtonLabel];
+    NSString *nsURL = [NSString stringWithUTF8String:url];
+
+    dispatch_block_t block = ^{
+        @autoreleasepool {
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:nsTitle];
+            [alert setInformativeText:nsMessage];
+            [alert setIcon:nil];
+            [alert addButtonWithTitle:nsPrimaryButtonLabel];
+            [alert addButtonWithTitle:nsSecondaryButtonLabel];
+            NSModalResponse response = [alert runModal];
+            if (response == NSAlertFirstButtonReturn && [nsURL length] > 0) {
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:nsURL]];
+            }
+        }
+    };
+
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), block);
+    }
+}
+
 void setMenuItemState(int itemId, int menuItemIndex, int state) {
     dispatch_block_t block = ^{
         @autoreleasepool {

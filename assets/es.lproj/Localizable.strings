@@ -23,3 +23,9 @@
 
 /* About dialog */
 "about_message" = "Versión %@\n\nPor Emmanuel Laborin\nBasado en xbar de Mat Ryer";
+
+/* Update dialog */
+"Update Available" = "Actualización disponible";
+"Download" = "Descargar";
+"Dismiss" = "Descartar";
+"update_available_message" = "Hay una nueva versión de pico-xbar disponible.\n\nVersión actual: %@\nÚltima versión: %@";

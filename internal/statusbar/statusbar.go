@@ -34,6 +34,7 @@ void stopApp(void);
 void copyToClipboard(const char *text);
 void showAlert(const char *title, const char *message);
 void showAlertWithURL(const char *title, const char *message, const char *buttonLabel, const char *url);
+void showAlertWithURLButtons(const char *title, const char *message, const char *primaryButtonLabel, const char *secondaryButtonLabel, const char *url);
 void setMenuItemState(int itemId, int menuItemIndex, int state);
 const char* localizedString(const char *key);
 */
@@ -256,6 +257,20 @@ func ShowAlertWithURL(title, message, buttonLabel, url string) {
 	cURL := C.CString(url)
 	defer C.free(unsafe.Pointer(cURL))
 	C.showAlertWithURL(cTitle, cMessage, cButtonLabel, cURL)
+}
+
+func ShowAlertWithURLButtons(title, message, primaryButtonLabel, secondaryButtonLabel, url string) {
+	cTitle := C.CString(title)
+	defer C.free(unsafe.Pointer(cTitle))
+	cMessage := C.CString(message)
+	defer C.free(unsafe.Pointer(cMessage))
+	cPrimaryButtonLabel := C.CString(primaryButtonLabel)
+	defer C.free(unsafe.Pointer(cPrimaryButtonLabel))
+	cSecondaryButtonLabel := C.CString(secondaryButtonLabel)
+	defer C.free(unsafe.Pointer(cSecondaryButtonLabel))
+	cURL := C.CString(url)
+	defer C.free(unsafe.Pointer(cURL))
+	C.showAlertWithURLButtons(cTitle, cMessage, cPrimaryButtonLabel, cSecondaryButtonLabel, cURL)
 }
 
 func SetMenuItemState(itemId int, menuItemIndex int, checked bool) {
