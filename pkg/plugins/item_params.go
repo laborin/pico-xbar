@@ -269,8 +269,10 @@ func (p *ItemParams) setValueByKey(key, value string) error {
 			if err != nil {
 				return errors.Errorf("bad parameter: %s (should be paramN)", key)
 			}
+			if paramIndex < 1 || paramIndex > 100 {
+				return errors.Errorf("parameter index out of range (1-100): %s", key)
+			}
 			for len(p.ShellParams) < paramIndex {
-				// ensure the slice is big enough
 				p.ShellParams = append(p.ShellParams, "")
 			}
 			p.ShellParams[paramIndex-1] = value

@@ -198,7 +198,7 @@ func (p Plugin) Complete() error {
 }
 
 // Parse parses the s input extracting bitbar or xbar metadata.
-func Parse(debugf DebugFunc, filename, s string) (Plugin, error) {
+func Parse(filename, s string) (Plugin, error) {
 	var p Plugin
 	p.LastUpdated = time.Now()
 	p.Files = []File{
@@ -214,14 +214,11 @@ func Parse(debugf DebugFunc, filename, s string) (Plugin, error) {
 	p.CategoryPathSegments = CategoryPathSegments(path.Dir(filename))
 	submatchall := append(bitbarMetaRegexp.FindAllStringSubmatch(s, -1), xbarMetaRegexp.FindAllStringSubmatch(s, -1)...)
 	for _, element := range submatchall {
-		debugf("%s: %s ", element[1], element[2])
 		switch strings.ToLower(element[1]) {
 		case "bitbar.title", "xbar.title":
 			p.Title = element[2]
-			debugf("✓\n")
 		case "bitbar.version", "xbar.version":
 			p.Version = element[2]
-			debugf("✓\n")
 		case "bitbar.author", "xbar.author":
 			authorNames := strings.Split(element[2], ",")
 			p.Author = strings.Join(authorNames, ", ")
@@ -232,7 +229,6 @@ func Parse(debugf DebugFunc, filename, s string) (Plugin, error) {
 				}
 				p.Authors[i].Name = authorName
 			}
-			debugf("✓\n")
 		case "bitbar.author.github", "xbar.author.github":
 			authorUsernames := strings.Split(element[2], ",")
 			for i, authorUsername := range authorUsernames {
@@ -242,28 +238,21 @@ func Parse(debugf DebugFunc, filename, s string) (Plugin, error) {
 				}
 				p.Authors[i].GitHubUsername = authorUsername
 			}
-			debugf("✓\n")
 		case "bitbar.desc", "xbar.desc":
 			p.Desc = element[2]
-			debugf("✓\n")
 		case "bitbar.image", "xbar.image":
 			p.ImageURL = element[2]
-			debugf("✓\n")
 		case "bitbar.abouturl", "xbar.abouturl":
 			p.AboutURL = element[2]
-			debugf("✓\n")
 		case "bitbar.dependencies", "xbar.dependencies":
 			p.Dependencies = splitList(element[2])
-			debugf("✓\n")
 		case "xbar.var":
 			v, err := parsePluginVar(element[2])
 			if err != nil {
 				return p, err
 			}
 			p.Vars = append(p.Vars, v)
-			debugf("✓\n")
 		default:
-			debugf("(skipping) unknown parameter %s\n", element[1])
 		}
 	}
 	if len(p.Authors) > 0 {
@@ -308,18 +297,6 @@ func splitList(s string) []string {
 		}
 	}
 	return cleanSegs
-}
-
-// DebugFunc is a function that writes debug information.
-// Use DebugfNoop for silence.
-type DebugFunc func(format string, v ...interface{})
-
-// DebugfNoop is a silent DebugFunc.
-func DebugfNoop(format string, v ...interface{}) {}
-
-// DebugfLog uses log.Print to write debug information.
-func DebugfLog(format string, v ...interface{}) {
-	fmt.Printf(format, v...)
 }
 
 // DefaultPluginImage is the image to use when none is set.

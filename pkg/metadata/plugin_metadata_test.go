@@ -10,8 +10,7 @@ import (
 func TestParse(t *testing.T) {
 	is := is.New(t)
 
-	debugf := DebugfNoop
-	md, err := Parse(debugf, "test.txt", `
+	md, err := Parse("test.txt", `
 
 # <xbar.title>Title goes here</xbar.title>
 # <xbar.version>v1.0</xbar.version>
@@ -41,7 +40,7 @@ func TestParse(t *testing.T) {
 	is.Equal(md.Dependencies[2], "node")
 	is.Equal(md.AboutURL, "http://url-to-about.com/")
 
-	md, err = Parse(debugf, "test.txt", `
+	md, err = Parse("test.txt", `
 
 # <bitbar.title>Title goes here</bitbar.title>
 # <bitbar.version>v1.0</bitbar.version>
@@ -66,7 +65,7 @@ func TestParse(t *testing.T) {
 	is.Equal(md.Dependencies[2], "node")
 	is.Equal(md.AboutURL, "https://url-to-about.com/")
 
-	md, err = Parse(DebugfNoop, "test.txt", `
+	md, err = Parse("test.txt", `
 
 	/*
 		Amother other kinds of comments:
@@ -119,7 +118,7 @@ func TestPluginCategoryPathSegments(t *testing.T) {
 func TestVariables(t *testing.T) {
 	is := is.New(t)
 
-	md, err := Parse(DebugfNoop, "test.txt", `
+	md, err := Parse("test.txt", `
 
 	/*
 		Variables can be specified and will become configurable
@@ -195,7 +194,7 @@ func TestErrors(t *testing.T) {
 	for expected, src := range errs {
 		t.Run(expected, func(t *testing.T) {
 			is := is.New(t)
-			_, err := Parse(DebugfNoop, "test.script", src)
+			_, err := Parse("test.script", src)
 			is.True(err != nil) // expected to error
 			is.True(strings.Contains(err.Error(), expected))
 		})

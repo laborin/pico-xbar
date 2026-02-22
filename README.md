@@ -7,7 +7,7 @@ A lightweight fork of [xbar](https://github.com/matryer/xbar) that uses native m
 - 100% compatibility with existing xbar plugins
 - Native macOS menu bar integration via custom CGO/NSStatusBar
 - No Wails/WebView (no plugin browser)
-- Minimal memory footprint: ~20MB vs 120MB+
+- Minimal memory footprint: ~20MB vs 120MB+ for a single plugin loaded
 
 ## Motivation
 
@@ -24,7 +24,7 @@ I decided to fork, surgically remove Wails and replace it with systray. I wish I
 
 **Removed:** Wails framework, Svelte WebView frontend, remote services (plugin browser, update checker), and website/tools code.
 
-**Kept unchanged:** The entire `pkg/plugins/` directory wich handles plugin discovery, execution, output parsing and click actions.
+**Mostly unchanged:** The entire `pkg/plugins/` directory which handles plugin discovery, execution, output parsing and click actions. A couple of inefficiencies were improved around timers and regexes.
 
 **New:** Custom CGO/Objective-C wrapper for NSStatusBar (`internal/statusbar/`), menu builder (`internal/menu/`), and app logic (`internal/app/`).
 
@@ -40,19 +40,7 @@ Menus are updated in-place with a simple diffing mechanism. Renaming a plugin to
 
 The xbar documentation for writing plugins applies to pico-xbar: [https://xbarapp.com/docs/plugins/](https://xbarapp.com/docs/plugins/)
 
-## Build from source
-
-```bash
-go build -o pico-xbar ./cmd/pico-xbar
-```
-
-## Run
-
-```bash
-./pico-xbar
-```
-
-## Plugin Directory
+## Plugins Location
 
 Plugins are loaded from the standard xbar plugins directory:
 ```
@@ -65,5 +53,4 @@ You can even run xbar and pico-xbar side by side to compare and confirm that you
 
 MIT License - see LICENSE.txt
 
-Forked from [xbar](https://github.com/matryer/xbar) by Mat Ryer.
-
+Originally forked from [xbar](https://github.com/matryer/xbar) by Mat Ryer.

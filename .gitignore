@@ -2,7 +2,10 @@
 .idea
 
 # Binary
-pico-xbar
+/pico-xbar
+
+# Build output
+build/
 
 # Test artifacts
 testdata/

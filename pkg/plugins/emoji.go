@@ -905,9 +905,29 @@ var name2codes = map[string][]rune{
 
 // Emojize converts emoji names (e.g., :pizza:) to emoji characters.
 func Emojize(s string) string {
-	for name, emoji := range name2codes {
-		marker := ":" + name + ":"
-		s = strings.ReplaceAll(s, marker, string(emoji))
+	if !strings.Contains(s, ":") {
+		return s
+	}
+	start := 0
+	for {
+		colonIdx := strings.Index(s[start:], ":")
+		if colonIdx == -1 {
+			break
+		}
+		colonIdx += start
+		endIdx := strings.Index(s[colonIdx+1:], ":")
+		if endIdx == -1 {
+			break
+		}
+		endIdx += colonIdx + 1
+		name := s[colonIdx+1 : endIdx]
+		if emoji, ok := name2codes[name]; ok {
+			replacement := string(emoji)
+			s = s[:colonIdx] + replacement + s[endIdx+1:]
+			start = colonIdx + len(replacement)
+		} else {
+			start = colonIdx + 1
+		}
 	}
 	return s
 }

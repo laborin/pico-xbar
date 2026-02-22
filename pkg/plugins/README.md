@@ -22,7 +22,6 @@ if err != nil {
 for i := range ps {
     ps[i].OnRefresh = refreshFunc
     ps[i].OnCycle = cycleFunc
-    ps[i].Debugf = plugins.DebugfLog
 }
 ctx := context.Background()
 ps.Run(ctx)

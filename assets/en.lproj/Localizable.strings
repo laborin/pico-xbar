@@ -1,0 +1,25 @@
+/* Menu items */
+"Refresh" = "Refresh";
+"Refresh All" = "Refresh All";
+"Start at Login" = "Start at Login";
+"Quit" = "Quit";
+"About pico-xbar" = "About pico-xbar";
+"Plugin..." = "Plugin...";
+
+/* Plugin submenu */
+"Open Plugin File..." = "Open Plugin File...";
+"Copy Plugin Path" = "Copy Plugin Path";
+"Show in Finder" = "Show in Finder";
+"Open Terminal Here..." = "Open Terminal Here...";
+
+/* Default menu (no plugins) */
+"Open Plugin Folder..." = "Open Plugin Folder...";
+
+/* Alerts */
+"Error" = "Error";
+"Path Copied" = "Path Copied";
+"Plugin path copied to clipboard." = "Plugin path copied to clipboard.";
+"Website" = "Website";
+
+/* About dialog */
+"about_message" = "Version %@\n\nBy Emmanuel Laborin\nBased on xbar by Mat Ryer";

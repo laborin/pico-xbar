@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/laborin/pico-xbar/internal/loginitem"
@@ -15,6 +16,10 @@ import (
 	"github.com/laborin/pico-xbar/internal/version"
 	"github.com/laborin/pico-xbar/pkg/plugins"
 )
+
+func L(key string) string {
+	return statusbar.LocalizedString(key)
+}
 
 const (
 	menuIndexRefresh      = -1
@@ -32,6 +37,10 @@ var globalRefreshAllFunc func()
 
 func SetRefreshAllHandler(f func()) {
 	globalRefreshAllFunc = f
+}
+
+func ClearRefreshAllHandler() {
+	globalRefreshAllFunc = nil
 }
 
 type menuItemState struct {
@@ -188,33 +197,33 @@ func (pm *PluginMenu) rebuildMenu() {
 		pm.addMenuItem(item, "")
 	}
 
-	pluginSubmenu := "Plugin..."
+	pluginSubmenu := L("Plugin...")
 
 	if len(items) == 0 {
-		statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, "Refresh", false, false)
-		statusbar.AddMenuItem(pm.itemId, menuIndexRefreshAll, "Refresh All", false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexRefresh, L("Refresh"), false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexRefreshAll, L("Refresh All"), false, false)
 		statusbar.AddSubmenu(pm.itemId, pluginSubmenu)
 		pm.addPluginSubmenuItems(pluginSubmenu)
-		statusbar.AddMenuItem(pm.itemId, menuIndexStartAtLogin, "Start at Login", false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexStartAtLogin, L("Start at Login"), false, false)
 		statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
-		statusbar.AddMenuItem(pm.itemId, menuIndexAbout, "About pico-xbar", false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexAbout, L("About pico-xbar"), false, false)
 		statusbar.AddMenuItem(pm.itemId, -101, "", false, true)
-		statusbar.AddMenuItem(pm.itemId, menuIndexQuit, "Quit", false, false)
+		statusbar.AddMenuItem(pm.itemId, menuIndexQuit, L("Quit"), false, false)
 	} else {
 		lastIsSeparator := len(items) > 0 && items[len(items)-1].Params.Separator
 		if !lastIsSeparator {
 			statusbar.AddMenuItem(pm.itemId, -100, "", false, true)
 		}
 		statusbar.AddSubmenu(pm.itemId, "pico-xbar")
-		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefresh, "Refresh", false, false, "")
-		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefreshAll, "Refresh All", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefresh, L("Refresh"), false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexRefreshAll, L("Refresh All"), false, false, "")
 		statusbar.AddNestedSubmenu(pm.itemId, "pico-xbar", pluginSubmenu)
 		pm.addPluginSubmenuItems(pluginSubmenu)
-		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexStartAtLogin, "Start at Login", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexStartAtLogin, L("Start at Login"), false, false, "")
 		statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
-		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexAbout, "About pico-xbar", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexAbout, L("About pico-xbar"), false, false, "")
 		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", -101, "", false, true, "")
-		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexQuit, "Quit", false, false, "")
+		statusbar.AddSubmenuItem(pm.itemId, "pico-xbar", menuIndexQuit, L("Quit"), false, false, "")
 	}
 
 	pm.prevState = pm.buildState(items)
@@ -225,10 +234,10 @@ func (pm *PluginMenu) addPluginSubmenuItems(submenuName string) {
 	pluginName := pm.plugin.CleanFilename()
 	statusbar.AddSubmenuItem(pm.itemId, submenuName, -200, pluginName, true, false, "")
 	statusbar.AddSubmenuItem(pm.itemId, submenuName, -201, "", false, true, "")
-	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexOpenPlugin, "Open Plugin File...", false, false, "")
-	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexCopyPath, "Copy Plugin Path", false, false, "")
-	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexShowInFinder, "Show in Finder", false, false, "")
-	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexOpenTerminal, "Open Terminal Here...", false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexOpenPlugin, L("Open Plugin File..."), false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexCopyPath, L("Copy Plugin Path"), false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexShowInFinder, L("Show in Finder"), false, false, "")
+	statusbar.AddSubmenuItem(pm.itemId, submenuName, menuIndexOpenTerminal, L("Open Terminal Here..."), false, false, "")
 }
 
 func (pm *PluginMenu) addMenuItem(item *plugins.Item, parentSubmenu string) {
@@ -478,14 +487,14 @@ func (pm *PluginMenu) HandleClick(menuItemIndex int) {
 		}
 	case menuIndexStartAtLogin:
 		if err := loginitem.Toggle(); err != nil {
-			statusbar.ShowAlert("Error", "Failed to toggle login item: "+err.Error())
+			statusbar.ShowAlert(L("Error"), "Failed to toggle login item: "+err.Error())
 		}
 		if !removed {
 			statusbar.SetMenuItemState(pm.itemId, menuIndexStartAtLogin, loginitem.IsEnabled())
 		}
 	case menuIndexAbout:
-		aboutMsg := fmt.Sprintf("Version %s\n\nBy Emmanuel Laborin\nBased on xbar by Mat Ryer", version.Version)
-		statusbar.ShowAlert("pico-xbar", aboutMsg)
+		aboutMsg := strings.Replace(L("about_message"), "%@", version.Version, 1)
+		statusbar.ShowAlertWithURL("pico-xbar", aboutMsg, L("Website"), "https://laborin.com.mx/pico-xbar")
 	case menuIndexQuit:
 		statusbar.Stop()
 	case menuIndexRefresh:
@@ -494,21 +503,21 @@ func (pm *PluginMenu) HandleClick(menuItemIndex int) {
 		}
 	case menuIndexOpenPlugin:
 		if !removed {
-			exec.Command("open", plugin.Command).Start()
+			runCommandDetached("open", plugin.Command)
 		}
 	case menuIndexCopyPath:
 		if !removed {
 			statusbar.CopyToClipboard(plugin.Command)
-			statusbar.ShowAlert("Path Copied", "Plugin path copied to clipboard.")
+			statusbar.ShowAlert(L("Path Copied"), L("Plugin path copied to clipboard."))
 		}
 	case menuIndexShowInFinder:
 		if !removed {
-			exec.Command("open", "-R", plugin.Command).Start()
+			runCommandDetached("open", "-R", plugin.Command)
 		}
 	case menuIndexOpenTerminal:
 		if !removed {
 			pluginDir := filepath.Dir(plugin.Command)
-			exec.Command("open", "-a", "Terminal", pluginDir).Start()
+			runCommandDetached("open", "-a", "Terminal", pluginDir)
 		}
 	default:
 		if !removed && item != nil {
@@ -543,12 +552,12 @@ func ShowDefault(pluginDir string, onRefreshAll func(), onQuit func()) int {
 	itemId := statusbar.CreateStatusItem()
 	statusbar.SetTitle(itemId, "xbar")
 
-	statusbar.AddMenuItem(itemId, 0, "Open Plugin Folder...", false, false)
-	statusbar.AddMenuItem(itemId, 1, "Refresh All", false, false)
-	statusbar.AddMenuItem(itemId, 2, "Start at Login", false, false)
+	statusbar.AddMenuItem(itemId, 0, L("Open Plugin Folder..."), false, false)
+	statusbar.AddMenuItem(itemId, 1, L("Refresh All"), false, false)
+	statusbar.AddMenuItem(itemId, 2, L("Start at Login"), false, false)
 	statusbar.SetMenuItemState(itemId, 2, loginitem.IsEnabled())
 	statusbar.AddMenuItem(itemId, -1, "", false, true)
-	statusbar.AddMenuItem(itemId, 3, "Quit", false, false)
+	statusbar.AddMenuItem(itemId, 3, L("Quit"), false, false)
 
 	statusbar.SetClickHandler(func(id int, menuIndex int) {
 		if id != itemId {
@@ -557,14 +566,14 @@ func ShowDefault(pluginDir string, onRefreshAll func(), onQuit func()) int {
 		switch menuIndex {
 		case 0:
 			os.MkdirAll(pluginDir, 0755)
-			exec.Command("open", pluginDir).Start()
+			runCommandDetached("open", pluginDir)
 		case 1:
 			if onRefreshAll != nil {
 				go onRefreshAll()
 			}
 		case 2:
 			if err := loginitem.Toggle(); err != nil {
-				statusbar.ShowAlert("Error", "Failed to toggle login item: "+err.Error())
+				statusbar.ShowAlert(L("Error"), "Failed to toggle login item: "+err.Error())
 			}
 			statusbar.SetMenuItemState(itemId, 2, loginitem.IsEnabled())
 		case 3:
@@ -583,4 +592,14 @@ func Run(onReady func(), onExit func()) {
 	if onExit != nil {
 		onExit()
 	}
+}
+
+func runCommandDetached(name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	if err := cmd.Start(); err != nil {
+		return
+	}
+	go func() {
+		_ = cmd.Wait()
+	}()
 }

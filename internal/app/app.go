@@ -89,6 +89,8 @@ func (a *App) Stop() {
 		a.cancel()
 	}
 	a.wg.Wait()
+	menu.ClearRefreshAllHandler()
+	statusbar.SetClickHandler(nil)
 }
 
 func (a *App) loadPlugins() plugins.Plugins {
@@ -103,7 +105,6 @@ func (a *App) loadPlugins() plugins.Plugins {
 
 func (a *App) startPlugin(p *plugins.Plugin) {
 	p.AppleScriptTemplate = a.settings.AppleScriptTemplate()
-	p.Debugf = plugins.DebugfLog
 
 	pm := menu.NewPluginMenu(p)
 	pluginCtx, pluginCancel := context.WithCancel(a.ctx)

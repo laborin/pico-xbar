@@ -55,7 +55,6 @@ func OffTestItemAction(t *testing.T) {
 
 func TestTerminal(t *testing.T) {
 	p := NewPlugin("/dev/null")
-	p.Debugf = DebugfLog
 	item := Item{
 		Plugin: p,
 		Text:   "Item",

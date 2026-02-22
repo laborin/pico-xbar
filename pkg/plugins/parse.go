@@ -14,6 +14,8 @@ const (
 	separator = "---"
 )
 
+const maxNestingDepth = 50
+
 // parseOutput parses the output of a plugin run, and returns the
 // Items.
 func (p *Plugin) parseOutput(ctx context.Context, filename string, r io.Reader) (Items, error) {
@@ -22,7 +24,7 @@ func (p *Plugin) parseOutput(ctx context.Context, filename string, r io.Reader) 
 		params          ItemParams
 		depthPrefix     string
 		previousItem    *Item
-		ancestorItems   []*Item
+		ancestorItems   = make([]*Item, 0, 16)
 		captureExpanded bool
 		line            int
 		text            string
@@ -72,9 +74,11 @@ func (p *Plugin) parseOutput(ctx context.Context, filename string, r io.Reader) 
 			// if this is a separator in the submenu,
 			// then don't treat it as a another submenu.
 			if strings.TrimPrefix(text, depthPrefix) != separator {
-				// increase a level
-				ancestorItems = append(ancestorItems, previousItem)
-				depthPrefix += nesting
+				// increase a level (with depth limit)
+				if len(ancestorItems) < maxNestingDepth {
+					ancestorItems = append(ancestorItems, previousItem)
+					depthPrefix += nesting
+				}
 			}
 		}
 		text = strings.TrimPrefix(text, depthPrefix)

@@ -129,7 +129,7 @@ func (p *Plugin) loadVariablesFromPluginMetadata() (map[string]interface{}, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "read plugin source")
 	}
-	pluginMetadata, err := metadata.Parse(metadata.DebugFunc(p.Debugf), p.CleanFilename(), string(pluginFileB))
+	pluginMetadata, err := metadata.Parse(p.CleanFilename(), string(pluginFileB))
 	if err != nil {
 		return nil, errors.Wrap(err, "metadata.Parse")
 	}

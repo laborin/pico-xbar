@@ -27,7 +27,6 @@ func TestEnvironmentVariables(t *testing.T) {
 
 	p := &Plugin{
 		Command:         filepath.Join("testdata", "vars-test", "plugin.sh"),
-		Debugf:          DebugfNoop,
 		Timeout:         1 * time.Second,
 		RefreshInterval: RefreshInterval{N: 250, Unit: "milliseconds"},
 		CycleInterval:   500 * time.Millisecond,

@@ -26,8 +26,6 @@ type (
 	CycleFunc func(ctx context.Context, p *Plugin)
 	// RemoveFunc is a callback fired when a plugin should be removed.
 	RemoveFunc func()
-	// DebugFunc is a function that records debug information.
-	DebugFunc func(format string, v ...interface{})
 )
 
 // Plugin is a single executable xbar plugin.
@@ -49,8 +47,6 @@ type Plugin struct {
 	// Timeout is the time.Duration within which a plugin execution
 	// must complete before being cancelled.
 	Timeout time.Duration
-	// Debugf is a function that writes debug information.
-	Debugf DebugFunc
 	// OnRefresh is called when the plugin has been updated.
 	// Ignored if nil.
 	OnRefresh RefreshFunc
@@ -169,14 +165,12 @@ func NewPlugin(command string) *Plugin {
 		Timeout:       2 * time.Minute,
 		CycleInterval: 5 * time.Second,
 		Command:       command,
-		Debugf:        DebugfNoop,
 		refreshSignal: make(chan struct{}, 1),
 		cycleSignal:   make(chan struct{}, 1),
 	}
 	var err error
 	p.RefreshInterval, err = ParseFilenameInterval(filename)
 	if err != nil {
-		p.Debugf("failed to process interval: %s: %s (using default %v)", filename, err, defaultRefreshInterval)
 		p.RefreshInterval = defaultRefreshInterval
 	}
 	return p
@@ -190,7 +184,6 @@ func (p *Plugin) Run(ctx context.Context) {
 	var err error
 	p.Variables, err = p.loadVariablesAsEnvVars()
 	if err != nil {
-		p.Debugf("ERR: %s", err)
 		p.OnErr(err)
 	}
 	if p.Refresh(ctx) {
@@ -219,7 +212,6 @@ func (p *Plugin) Run(ctx context.Context) {
 				cycleTimer.Reset(p.CycleInterval)
 				continue
 			case <-p.cycleSignal:
-				p.Debugf("cycling: %s", filepath.Base(p.Command))
 				p.cycle(ctx)
 				if !cycleTimer.Stop() {
 					select {
@@ -229,7 +221,6 @@ func (p *Plugin) Run(ctx context.Context) {
 				}
 				cycleTimer.Reset(p.CycleInterval)
 			case <-cycleTimer.C:
-				p.Debugf("cycling: %s", filepath.Base(p.Command))
 				p.cycle(ctx)
 				cycleTimer.Reset(p.CycleInterval)
 			case <-ctx.Done():
@@ -246,7 +237,6 @@ func (p *Plugin) Run(ctx context.Context) {
 		for {
 			select {
 			case <-p.refreshSignal:
-				p.Debugf("refreshing: %s", filepath.Base(p.Command))
 				if p.Refresh(ctx) {
 					return
 				}
@@ -262,7 +252,6 @@ func (p *Plugin) Run(ctx context.Context) {
 				}
 				refreshTimer.Reset(p.RefreshInterval.Duration())
 			case <-refreshTimer.C:
-				p.Debugf("refreshing: %s", filepath.Base(p.Command))
 				if p.Refresh(ctx) {
 					return
 				}
@@ -277,7 +266,6 @@ func (p *Plugin) Run(ctx context.Context) {
 		}
 	}()
 	wg.Wait()
-	p.Debugf("finished")
 }
 
 // TriggerRefresh triggers a refresh on this Plugin.
@@ -306,11 +294,9 @@ func (p *Plugin) TriggerRefresh() {
 func (p *Plugin) Refresh(ctx context.Context) bool {
 	err := p.refresh(ctx)
 	if err == errPluginRemoved {
-		p.Debugf("plugin file removed, stopping")
 		return true
 	}
 	if err != nil {
-		p.Debugf("ERR: %s", err)
 		p.OnErr(err)
 	}
 	p.CycleIndex = 0 // reset
@@ -390,7 +376,6 @@ func (p *Plugin) findRenamedPlugin() (string, RefreshInterval, bool) {
 func (p *Plugin) refresh(ctx context.Context) error {
 	if _, err := os.Stat(p.Command); os.IsNotExist(err) {
 		if newPath, newInterval, found := p.findRenamedPlugin(); found {
-			p.Debugf("plugin renamed: %s -> %s", filepath.Base(p.Command), filepath.Base(newPath))
 			p.Command = newPath
 			p.RefreshInterval = newInterval
 		} else {
@@ -431,12 +416,41 @@ func (p *Plugin) refresh(ctx context.Context) error {
 			Stderr: stderr.String(),
 		}
 	}
+	// Clear old items' Plugin references to help GC break circular refs
+	clearItemsPluginRef(&p.Items)
 	var err error
 	p.Items, err = p.parseOutput(ctx, filepath.Base(p.Command), &stdout)
 	if err != nil {
 		return errors.Wrap(err, "parse stdout")
 	}
 	return nil
+}
+
+// clearItemsPluginRef clears Plugin references from Items to help GC.
+func clearItemsPluginRef(items *Items) {
+	for _, item := range items.CycleItems {
+		clearItemPluginRef(item)
+	}
+	for _, item := range items.ExpandedItems {
+		clearItemPluginRef(item)
+	}
+	items.CycleItems = nil
+	items.ExpandedItems = nil
+}
+
+// clearItemPluginRef recursively clears Plugin reference from an Item.
+func clearItemPluginRef(item *Item) {
+	if item == nil {
+		return
+	}
+	item.Plugin = nil
+	if item.Alternate != nil {
+		item.Alternate.Plugin = nil
+	}
+	for _, child := range item.Items {
+		clearItemPluginRef(child)
+	}
+	item.Items = nil
 }
 
 // OnErr is called when something has gone wrong at some point.
@@ -513,29 +527,6 @@ func (p *Plugin) stringToItems(s string) []*Item {
 		})
 	}
 	return items
-}
-
-// DebugfNoop is a silent DebugFunc.
-func DebugfNoop(format string, v ...interface{}) {}
-
-// DebugfLog uses log.Print to write debug information.
-func DebugfLog(format string, v ...interface{}) {
-	log.Printf(format, v...)
-}
-
-// DebugfPrefix wraps a DebugFunc and prepends a prefix string.
-func DebugfPrefix(prefix string, debugf DebugFunc) DebugFunc {
-	return func(format string, v ...interface{}) {
-		s := fmt.Sprintf(format, v...)
-		if len(prefix) > 0 {
-			lines := strings.Split(s, "\n")
-			for i := range lines {
-				lines[i] = prefix + ": " + lines[i]
-			}
-			s = strings.Join(lines, "\n")
-		}
-		debugf("%s", s)
-	}
 }
 
 // errParsing is used for output parsing errors.

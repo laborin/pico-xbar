@@ -1,9 +1,7 @@
 package plugins
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,30 +30,34 @@ const actionTimeout = 10 * time.Second
 //		actionFunc(ctx)
 //	}
 func (i *Item) Action() ActionFunc {
-	debugf := DebugfNoop
+	var plugin *Plugin
 	if i.Plugin != nil {
-		debugf = i.Plugin.Debugf
+		plugin = i.Plugin
 	}
 	var actions []ActionFunc
 	if i.Params.Href != "" {
-		actions = append(actions, actionHref(debugf, i.Params.Href))
+		actions = append(actions, actionHref(i.Params.Href))
 	}
 	if i.Params.Shell != "" {
-		actions = append(actions, actionShell(debugf, i, i.Plugin.AppleScriptTemplate, i.Params.Shell, i.Params.ShellParams, i.Plugin.Variables))
-	}
-	if i.Params.Refresh {
-		shouldDelayBeforeRefresh := false
-		if len(actions) > 0 {
-			// there are actions other than refresh, so let's introduce a
-			// delay to let those other actions work before triggering
-			// the refresh.
-			shouldDelayBeforeRefresh = true
+		// Capture only needed values to avoid keeping entire Item alive
+		pluginDir := ""
+		appleScriptTemplate := ""
+		var envVars []string
+		if plugin != nil {
+			pluginDir = filepath.Dir(plugin.Command)
+			appleScriptTemplate = plugin.AppleScriptTemplate
+			envVars = plugin.Variables
 		}
-		actions = append(actions, actionRefresh(debugf, func(ctx context.Context) {
+		actions = append(actions, actionShellWithDir(pluginDir, i.Params.Terminal, appleScriptTemplate, i.Params.Shell, i.Params.ShellParams, envVars))
+	}
+	if i.Params.Refresh && plugin != nil {
+		shouldDelayBeforeRefresh := len(actions) > 0
+		// Capture plugin pointer directly to avoid keeping Item alive
+		actions = append(actions, actionRefresh(func(ctx context.Context) {
 			if shouldDelayBeforeRefresh {
 				time.Sleep(500 * time.Millisecond)
 			}
-			i.Plugin.TriggerRefresh()
+			plugin.TriggerRefresh()
 		}))
 	}
 	if len(actions) == 0 {
@@ -79,89 +81,60 @@ func actionFuncs(actions ...ActionFunc) ActionFunc {
 }
 
 // actionHref gets an ActionFunc that opens a URL.
-func actionHref(debugf DebugFunc, href string) ActionFunc {
+func actionHref(href string) ActionFunc {
 	return func(ctx context.Context) {
-		debugf("action href: %s", href)
 		commandCtx, cancel := context.WithTimeout(ctx, actionTimeout)
 		defer cancel()
-		var err error
 		switch runtime.GOOS {
 		case "linux":
 			cmd := exec.CommandContext(commandCtx, "xdg-open", href)
 			Setpgid(cmd)
-			cmd.Run()
+			_ = cmd.Run()
 		case "windows":
 			cmd := exec.CommandContext(commandCtx, "rundll32", "url.dll,FileProtocolHandler", href)
 			Setpgid(cmd)
-			cmd.Run()
+			_ = cmd.Run()
 		case "darwin":
 			cmd := exec.CommandContext(commandCtx, "open", href)
 			Setpgid(cmd)
-			cmd.Run()
-		default:
-			err = fmt.Errorf("unsupported platform")
-		}
-		if err != nil {
-			debugf("ERR: action href: %s", err)
-			return
+			_ = cmd.Run()
 		}
 	}
 }
 
-// actionShell gets an ActionFunc that runs a shell command.
-func actionShell(debugf DebugFunc, item *Item, appleScriptTemplate, command string, params, envVars []string) ActionFunc {
-	if item.Params.Terminal {
-		return actionShellTerminal(debugf, item, appleScriptTemplate, command, params, envVars)
+// actionShellWithDir gets an ActionFunc that runs a shell command in a directory.
+func actionShellWithDir(pluginDir string, terminal bool, appleScriptTemplate, command string, params, envVars []string) ActionFunc {
+	if terminal {
+		return actionShellTerminalDirect(pluginDir, appleScriptTemplate, command, params, envVars)
 	}
 	return func(ctx context.Context) {
-		var commandExec string
-		var commandArgs []string
-		commandExec = command
-		commandArgs = params
-		debugf("exec: %s %s", commandExec, strings.Join(commandArgs, " "))
-		cmd := exec.CommandContext(ctx, commandExec, commandArgs...)
+		cmd := exec.CommandContext(ctx, command, params...)
 		Setpgid(cmd)
-		// wd should be where the plugin is running
-		cmd.Dir = filepath.Dir(item.Plugin.Command)
-		// and it can inherit the environment
+		cmd.Dir = pluginDir
 		cmd.Env = append(cmd.Env, os.Environ()...)
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-		err := cmd.Run()
-		if err != nil {
-			debugf("ERR: action shell: %s", errExec{
-				err:    err,
-				Stderr: stderr.String(),
-			})
-			return
-		}
+		_ = cmd.Run()
 	}
 }
 
-// actionShellTerminal runs shell commands where terminal=true.
-func actionShellTerminal(debugf DebugFunc, item *Item, appleScriptTemplate, command string, params, envVars []string) ActionFunc {
+// actionShellTerminalDirect runs shell commands where terminal=true.
+func actionShellTerminalDirect(pluginDir, appleScriptTemplate, command string, params, envVars []string) ActionFunc {
 	return func(ctx context.Context) {
-		debugf("exec: RunInTerminal...")
-		command := strconv.Quote(command)
-		command = command[1 : len(command)-1] // trim quotes off
+		quotedCmd := strconv.Quote(command)
+		quotedCmd = quotedCmd[1 : len(quotedCmd)-1]
+		quotedParams := make([]string, len(params))
 		for i := range params {
-			params[i] = strconv.Quote(params[i])
-			params[i] = params[i][1 : len(params[i])-1] // trim quotes off
+			quotedParams[i] = strconv.Quote(params[i])
+			quotedParams[i] = quotedParams[i][1 : len(quotedParams[i])-1]
 		}
-		paramsStr := strconv.Quote(strings.Join(params, " "))
-		err := item.Plugin.runInTerminal(appleScriptTemplate, command, paramsStr, envVars)
-		if err != nil {
-			debugf("exec: RunInTerminal: err=%s", err)
-			return
-		}
+		paramsStr := strconv.Quote(strings.Join(quotedParams, " "))
+		_ = runInTerminalDirect(appleScriptTemplate, quotedCmd, paramsStr, envVars)
 	}
 }
 
 // actionRefresh gets an ActionFunc that manually refreshes the
 // Plugin.
-func actionRefresh(debugf DebugFunc, refreshFunc func(ctx context.Context)) ActionFunc {
+func actionRefresh(refreshFunc func(ctx context.Context)) ActionFunc {
 	return func(ctx context.Context) {
-		debugf("action refresh")
 		refreshFunc(ctx)
 	}
 }

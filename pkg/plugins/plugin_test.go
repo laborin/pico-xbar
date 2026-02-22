@@ -26,7 +26,6 @@ func TestRun(t *testing.T) {
 
 	for i := range plugins {
 		plugins[i].Timeout = 2 * time.Second
-		plugins[i].Debugf = func(format string, v ...interface{}) { /* silent */ }
 		plugins[i].CycleInterval = 100 * time.Millisecond
 		plugins[i].RefreshInterval = RefreshInterval{N: 250, Unit: "milliseconds"}
 		plugins[i].OnRefresh = func(ctx context.Context, p *Plugin, err error) {
@@ -39,10 +38,6 @@ func TestRun(t *testing.T) {
 			counters.cycles++
 			lock.Unlock()
 		}
-		// plugin := plugins[i]
-		// plugins[i].Debugf = func(format string, v ...interface{}) {
-		// 	log.Printf(filepath.Base(plugin.Command)+": "+format, v...)
-		// }
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -287,7 +282,6 @@ func TestCleanFilename(t *testing.T) {
 // still end up refreshing. Turns out they do because we're using exec.CommandContext.
 func TestPluginWontQuit(t *testing.T) {
 	p := Plugin{
-		Debugf:  t.Logf,
 		Command: filepath.Join("testdata", "broken-plugins", "wont-quit.1m.sh"),
 	}
 	ctx := context.Background()

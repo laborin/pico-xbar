@@ -33,7 +33,9 @@ void runApp(void);
 void stopApp(void);
 void copyToClipboard(const char *text);
 void showAlert(const char *title, const char *message);
+void showAlertWithURL(const char *title, const char *message, const char *buttonLabel, const char *url);
 void setMenuItemState(int itemId, int menuItemIndex, int state);
+const char* localizedString(const char *key);
 */
 import "C"
 import (
@@ -244,6 +246,18 @@ func ShowAlert(title, message string) {
 	C.showAlert(cTitle, cMessage)
 }
 
+func ShowAlertWithURL(title, message, buttonLabel, url string) {
+	cTitle := C.CString(title)
+	defer C.free(unsafe.Pointer(cTitle))
+	cMessage := C.CString(message)
+	defer C.free(unsafe.Pointer(cMessage))
+	cButtonLabel := C.CString(buttonLabel)
+	defer C.free(unsafe.Pointer(cButtonLabel))
+	cURL := C.CString(url)
+	defer C.free(unsafe.Pointer(cURL))
+	C.showAlertWithURL(cTitle, cMessage, cButtonLabel, cURL)
+}
+
 func SetMenuItemState(itemId int, menuItemIndex int, checked bool) {
 	state := 0
 	if checked {
@@ -450,4 +464,12 @@ func SubmenuItemIsSubmenu(itemId int, submenuTitle string, atIndex int) bool {
 	cSubmenuTitle := C.CString(submenuTitle)
 	defer C.free(unsafe.Pointer(cSubmenuTitle))
 	return C.submenuItemIsSubmenu(C.int(itemId), cSubmenuTitle, C.int(atIndex)) != 0
+}
+
+func LocalizedString(key string) string {
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	cResult := C.localizedString(cKey)
+	defer C.free(unsafe.Pointer(cResult))
+	return C.GoString(cResult)
 }
