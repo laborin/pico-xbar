@@ -49,6 +49,11 @@ Plugins are loaded from the standard xbar plugins directory:
 
 You can even run xbar and pico-xbar side by side to compare and confirm that your plugins work as expected.
 
+## Releases
+
+Download the latest version from GitHub Releases:  
+https://github.com/laborin/pico-xbar/releases
+
 ## License
 
 MIT License - see LICENSE.txt
