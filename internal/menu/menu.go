@@ -58,6 +58,7 @@ type menuItemState struct {
 	imageHash     string
 	templateImage bool
 	shrinkImage   bool
+	item          *plugins.Item
 	children      []*menuItemState
 }
 
@@ -135,7 +136,21 @@ func (pm *PluginMenu) Update(ctx context.Context, p *plugins.Plugin) {
 
 	pm.menuItems = make(map[int]*plugins.Item)
 	pm.diffAndUpdate(pm.prevState, newState, "")
+	pm.registerClickableItems(newState)
 	pm.prevState = newState
+}
+
+func (pm *PluginMenu) registerClickableItems(states []*menuItemState) {
+	for _, state := range states {
+		if state.isSubmenu {
+			pm.registerClickableItems(state.children)
+			continue
+		}
+		if state.separator || state.item == nil {
+			continue
+		}
+		pm.menuItems[state.tag] = state.item
+	}
 }
 
 func (pm *PluginMenu) UpdateLabel(p *plugins.Plugin) {
@@ -227,7 +242,19 @@ func (pm *PluginMenu) rebuildMenu() {
 	}
 
 	pm.prevState = pm.buildState(items)
+	tagCounter := 0
+	assignTags(pm.prevState, &tagCounter)
 	pm.hadItems = len(items) > 0
+}
+
+func assignTags(states []*menuItemState, next *int) {
+	for _, state := range states {
+		state.tag = *next
+		*next++
+		if state.isSubmenu {
+			assignTags(state.children, next)
+		}
+	}
 }
 
 func (pm *PluginMenu) addPluginSubmenuItems(submenuName string) {
@@ -308,6 +335,7 @@ func (pm *PluginMenu) buildItemState(item *plugins.Item) *menuItemState {
 		size:      item.Params.Size,
 		key:       item.Params.Key,
 		alternate: item.Params.Alternate,
+		item:      item,
 	}
 
 	if item.Params.TemplateImage != "" {
@@ -351,6 +379,7 @@ func (pm *PluginMenu) diffAndUpdate(oldState, newState []*menuItemState, parentS
 		newItem := newState[i]
 
 		if oldItem.isSubmenu && newItem.isSubmenu && oldItem.submenuTitle == newItem.submenuTitle {
+			newItem.tag = oldItem.tag
 			pm.diffAndUpdate(oldItem.children, newItem.children, newItem.submenuTitle)
 			continue
 		}
@@ -371,6 +400,8 @@ func (pm *PluginMenu) diffAndUpdate(oldState, newState []*menuItemState, parentS
 
 		if !oldItem.equals(newItem) {
 			pm.updateItemAtIndex(newItem, i, parentSubmenu)
+		} else {
+			newItem.tag = oldItem.tag
 		}
 	}
 
@@ -439,8 +470,7 @@ func (pm *PluginMenu) updateItemAtIndex(state *menuItemState, atIndex int, paren
 }
 
 func (pm *PluginMenu) setImageForState(state *menuItemState, tag int) {
-	items := pm.plugin.Items.ExpandedItems
-	item := pm.findItemByText(items, state.text)
+	item := state.item
 	if item == nil {
 		return
 	}
@@ -454,22 +484,6 @@ func (pm *PluginMenu) setImageForState(state *menuItemState, tag int) {
 			statusbar.SetMenuItemIcon(pm.itemId, tag, iconBytes, false, state.shrinkImage)
 		}
 	}
-
-	pm.menuItems[tag] = item
-}
-
-func (pm *PluginMenu) findItemByText(items []*plugins.Item, text string) *plugins.Item {
-	for _, item := range items {
-		if item.DisplayText() == text {
-			return item
-		}
-		if len(item.Items) > 0 {
-			if found := pm.findItemByText(item.Items, text); found != nil {
-				return found
-			}
-		}
-	}
-	return nil
 }
 
 func (pm *PluginMenu) HandleClick(menuItemIndex int) {
